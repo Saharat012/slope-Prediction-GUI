@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Hcr / FS — Three-Method Comparison</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Serif:wght@600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#EBEEEC;--panel:#fff;--panel2:#F5F7F5;--ink:#16211E;--ink2:#3D4E48;--muted:#6B7C76;
+  --rule:#CBD4D0;--rule2:#DFE5E2;--eq:#1F6E8C;--xgb:#16211E;--xd:#8A5BA8;
+  --ok:#2E7D5B;--fail:#B23B2E;--warn:#8A6A18;
+  --dry:#B4762A;--rapid:#6B7FA3;--wet:#1F6E8C;
+  --sans:"IBM Plex Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  --serif:"IBM Plex Serif",Georgia,serif;
+  --sh:0 1px 2px rgba(22,33,30,.06),0 8px 24px -16px rgba(22,33,30,.28);
+}
+*{box-sizing:border-box}html,body{margin:0;padding:0}
+body{background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
+body[data-w="DRY"]{--accent:var(--dry)}body[data-w="RAPID"]{--accent:var(--rapid)}body[data-w="WET"]{--accent:var(--wet)}
+header{background:var(--panel);border-bottom:1px solid var(--rule)}
+.head{max-width:1220px;margin:0 auto;padding:18px 20px 0;display:flex;gap:16px;justify-content:space-between;align-items:flex-start;flex-wrap:wrap}
+.brand h1{font-family:var(--serif);font-size:24px;line-height:1.15;margin:0;letter-spacing:-.01em}
+.brand p{margin:5px 0 0;color:var(--muted);font-size:13px;max-width:72ch}
+.tag{display:inline-flex;align-items:center;font-family:var(--mono);font-size:10px;letter-spacing:.05em;text-transform:uppercase;padding:4px 8px;border:1px solid var(--rule);border-radius:5px;background:var(--panel2);color:var(--muted)}
+.tabs{max-width:1220px;margin:0 auto;padding:14px 20px 0;display:flex;gap:2px}
+.tabs button{border:0;background:transparent;padding:9px 14px;margin-bottom:-1px;border-bottom:2px solid transparent;color:var(--muted);font:500 11px var(--mono);letter-spacing:.08em;text-transform:uppercase;cursor:pointer}
+.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--ink)}
+.wrap{max-width:1220px;margin:0 auto;padding:0 20px 72px}
+.panel,.section{background:var(--panel);border:1px solid var(--rule2);border-radius:10px;box-shadow:var(--sh)}
+.pad{padding:18px}.eyebrow{font:500 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin:0 0 9px}
+.calc{display:grid;grid-template-columns:300px minmax(0,1fr);gap:18px;margin-top:22px;align-items:start}
+.controls{position:sticky;top:14px}.field{margin-bottom:18px}
+.field label{display:block;font:500 10.5px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:7px}
+.seg{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;border:1px solid var(--rule);border-radius:7px;overflow:hidden}
+.seg button{border:0;border-right:1px solid var(--rule);background:#fff;padding:9px 4px;cursor:pointer;color:var(--ink2);font:13px var(--sans)}
+.seg button:last-child{border-right:0}.seg button:hover{background:var(--panel2)}.seg button[aria-pressed="true"]{background:var(--ink);color:#fff}
+.seg.water button[aria-pressed="true"]{background:var(--accent);color:#fff}.seg small{display:block;font:9px var(--mono);opacity:.68}
+.slabel{display:flex;align-items:baseline;justify-content:space-between}.slabel b{font:600 15px var(--mono)}
+input[type=range]{width:100%;accent-color:var(--ink);margin-top:6px}.ticks{display:flex;justify-content:space-between;color:var(--muted);font:9.5px var(--mono)}
+.cap{padding:12px 16px;border-bottom:1px solid var(--rule2);display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.section{overflow:hidden}.section svg{display:block;width:100%;height:auto}.mono{font-family:var(--mono)}.note{font-size:12px;color:var(--muted)}
+.legend{display:flex;gap:16px;flex-wrap:wrap;padding:9px 16px;background:var(--panel2);border-top:1px solid var(--rule2);font:10px var(--mono);color:var(--muted)}
+.legend i{display:inline-block;width:15px;height:0;border-top:2px solid;vertical-align:middle;margin-right:5px}
+.methods{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:14px}
+.method{background:#fff;border:1px solid var(--rule2);border-radius:10px;padding:15px;box-shadow:var(--sh);min-width:0}
+.method.eq{border-top:3px solid var(--eq)}.method.xgb{border-top:3px solid var(--xgb)}.method.xd{border-top:3px solid var(--xd)}
+.methodhead{display:flex;justify-content:space-between;gap:8px;align-items:flex-start;margin-bottom:11px}
+.methodname{font:600 13px var(--mono)}.methodsub{font-size:11px;color:var(--muted);margin-top:2px}
+.metricgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.metric{background:var(--panel2);border:1px solid var(--rule2);border-radius:7px;padding:10px}
+.metric .k{font:500 9.5px var(--mono);text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.metric .v{font:600 24px var(--mono);line-height:1.15;margin-top:4px;letter-spacing:-.02em}
+.metric .u{font-size:11px;font-weight:400;color:var(--muted);margin-left:2px}.metric .s{font-size:10.5px;color:var(--muted);margin-top:3px;min-height:16px}
+.statusline{margin-top:9px;padding-top:9px;border-top:1px solid var(--rule2);display:flex;justify-content:space-between;gap:10px;align-items:center}
+.status{font:600 12px var(--mono)}.status.safe{color:var()}.status.unsafe{color:var(--fail)}.status.na{color:var(--muted)}
+.compare{margin-top:14px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.mini{background:var(--panel);border:1px solid var(--rule2);border-radius:8px;padding:11px}.mini .k{font:500 9.5px var(--mono);text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}.mini .v{font:600 15px var(--mono);margin-top:3px}
+h2{font-family:var(--serif);font-size:19px;margin:30px 0 12px}
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.eqbox{padding:16px}.formula{font:12px/1.65 var(--mono);background:var(--panel2);border:1px solid var(--rule2);border-radius:7px;padding:12px;overflow:auto}
+.kv{display:grid;grid-template-columns:145px 1fr;gap:5px 13px;font-size:13px}.kv dt{font:500 10px var(--mono);text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}.kv dd{margin:0}
+.caveat{border-left:3px solid var(--warn);background:#fbf7e9;padding:11px 13px;border-radius:0 8px 8px 0;margin-top:12px;font-size:13px;color:var(--ink2)}
+
+.acc-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:14px 0 20px}
+.acc-card{background:var(--panel);border:1px solid var(--rule2);border-radius:10px;padding:14px;box-shadow:var(--sh)}
+.acc-card.eq{border-top:3px solid var(--eq)}.acc-card.xgb{border-top:3px solid var(--xgb)}.acc-card.xd{border-top:3px solid var(--xd)}
+.acc-card h3{font:600 14px var(--sans);margin:0 0 10px}.acc-block{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.acc-kpi{background:var(--panel2);border:1px solid var(--rule2);border-radius:7px;padding:9px}
+.acc-kpi .k{font:500 9px var(--mono);text-transform:uppercase;letter-spacing:.07em;color:var(--muted)}
+.acc-kpi .v{font:600 17px var(--mono);margin-top:2px}.acc-kpi .s{font-size:10.5px;color:var(--muted);margin-top:2px}
+.bench{border-top:1px solid var(--rule2);margin-top:11px;padding-top:8px;font:500 9.5px var(--mono);color:var(--muted);line-height:1.55}
+.bench b{color:var(--ink);font-weight:600}
+.acctbl{width:100%;border-collapse:collapse;background:var(--panel);font-size:12.5px}
+.acctbl th,.acctbl td{padding:8px 10px;border-bottom:1px solid var(--rule2);text-align:right;white-space:nowrap}
+.acctbl th:first-child,.acctbl td:first-child{text-align:left}.acctbl th{font:500 9.5px var(--mono);letter-spacing:.07em;text-transform:uppercase;color:var(--muted);background:var(--panel2)}
+.chart2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-top:16px}
+.acclead{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 0}
+@media(max-width:900px){.acc-cards,.chart2{grid-template-columns:1fr}}
+
+
+.soilauto{border:1px solid var(--rule-2);border-radius:9px;background:var(--panel-2);padding:12px;margin-bottom:18px}
+.soilauto .topline{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
+.soilauto .topline strong{font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase}
+.autotoggle{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:10px;color:var(--muted);cursor:pointer}
+.autotoggle input{accent-color:var(--ink)}
+.modechoose{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin:9px 0 10px}
+.modechoose label{display:flex;align-items:center;gap:7px;padding:8px 9px;border:1px solid var(--rule);border-radius:7px;background:#fff;font-family:var(--mono);font-size:10.5px;cursor:pointer;color:var(--ink-2)}
+.modechoose label:has(input:checked){border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink);color:var(--ink)}
+.modechoose input{accent-color:var(--ink)}
+.modehint{font-size:11px;color:var(--muted);line-height:1.45;margin:2px 0 8px}
+.soilprofilepanel{margin-top:10px;padding-top:10px;border-top:1px solid var(--rule-2)}
+.suggestion{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:10px;padding:10px;border:1px solid #bfdccd;background:#f3faf6;border-radius:8px}
+.suggestion .big{font-family:var(--mono);font-size:19px;font-weight:600;color:var(--ok)}
+.suggestion .meta{font-family:var(--mono);font-size:10px;color:var(--muted)}
+.suggestion button{border:1px solid var(--ok);background:var(--ok);color:#fff;border-radius:6px;padding:7px 10px;font-family:var(--mono);font-size:10px;cursor:pointer}
+.suggestion button:disabled{opacity:.45;cursor:default}
+.refdetails{margin-top:8px}
+.refdetails summary{cursor:pointer;font-family:var(--mono);font-size:10.5px;color:var(--ink-2)}
+.reftbl{width:100%;margin-top:7px;border-collapse:collapse;font-size:10.5px;background:#fff}
+.reftbl th,.reftbl td{padding:5px 6px;border-bottom:1px solid var(--rule-2);text-align:center}
+.reftbl th:first-child,.reftbl td:first-child{text-align:left}
+.soilprofilewrap{overflow-x:auto;border:1px solid var(--rule-2);border-radius:8px;background:#fff}
+.soilprofile{width:100%;border-collapse:collapse;min-width:610px;font-size:11px}
+.soilprofile th,.soilprofile td{border-bottom:1px solid var(--rule-2);border-right:1px solid var(--rule-2);padding:5px 6px;text-align:center;vertical-align:middle}
+.soilprofile th:last-child,.soilprofile td:last-child{border-right:0}.soilprofile tr:last-child td{border-bottom:0}
+.soilprofile thead th{position:static;background:var(--panel-2);font-family:var(--mono);font-size:9.5px;letter-spacing:.04em;color:var(--muted);font-weight:600;text-transform:none}
+.soilprofile td:first-child,.soilprofile th:first-child{text-align:left;white-space:nowrap}.soilprofile td:last-child,.soilprofile th:last-child{white-space:nowrap;color:var(--muted)}
+.soilprofile input{width:100%;min-width:62px;border:1px solid transparent;border-radius:5px;background:#fff;color:var(--ink);font:500 11px var(--mono);padding:5px 4px;text-align:center}
+.soilprofile input:hover,.soilprofile input:focus{border-color:var(--rule);background:var(--panel-2);outline:0}
+.soilprofile input.used{border-color:transparent;background:#fff;font-weight:500}
+.useddot{display:none}
+.profilehelp{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:7px 1px 0;font-size:10px;color:var(--muted);line-height:1.35}
+.profilehelp .usedkey{color:var(--muted);font-family:var(--mono)}
+.soilclass{display:flex;justify-content:space-between;gap:10px;align-items:flex-end;margin-top:10px;padding-top:9px;border-top:1px solid var(--rule-2)}
+.soilclass .score{font-family:var(--mono);font-size:10.5px;color:var(--muted)}
+.soilclass .group{font-family:var(--mono);font-size:20px;font-weight:600;line-height:1}
+.soilref{margin-top:7px;font-size:10.5px;color:var(--muted);line-height:1.35}
+.seg button:disabled{cursor:default;opacity:.46}
+.seg button:disabled[aria-pressed="true"]{opacity:1}
+footer{border-top:1px solid var(--rule);padding:18px 20px;text-align:center;color:var(--muted);font-size:11.5px}
+[hidden]{display:none!important}:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+@media(max-width:900px){.calc{grid-template-columns:1fr}.controls{position:static}.methods,.compare,.grid2{grid-template-columns:1fr}}
+</style>
+</head>
+<body data-w="DRY">
+<header>
+  <div class="head">
+    <div class="brand">
+      <h1>Hcr / FS three-method comparison</h1>
+      <p>Compare the proposed engineering equations, XGBoost, and xDeepFM side by side using the same soil group, water condition, slope angle, and excavation depth.</p>
+    </div>
+    <span class="tag">3 methods · 63 Hcr curves · 372 FS points</span>
+  </div>
+  <nav class="tabs" role="tablist">
+    <button role="tab" aria-selected="true" data-tab="calc">Calculator</button>
+    <button role="tab" aria-selected="false" data-tab="accuracy">FEM accuracy</button>
+    <button role="tab" aria-selected="false" data-tab="method">Method definitions</button>
+  </nav>
+</header>
+
+<main class="wrap">
+<section id="tab-calc">
+  <div class="calc">
+    <aside class="controls panel pad">
+      <div class="soilauto">
+        <div class="topline">
+          <strong>Soil group input</strong>
+          <span class="tag">Manual by default</span>
+        </div>
+        <div class="modechoose" role="radiogroup" aria-label="Soil group input mode">
+          <label><input type="radio" name="soilMode" value="manual" checked> Select Soil Group</label>
+          <label><input type="radio" name="soilMode" value="auto"> Auto classify from parameters</label>
+        </div>
+        <div class="modehint" id="manualHint">Choose G1, G2, or G3 directly. Use the optional classifier only when you want the soil profile to suggest a group.</div>
+        <details class="refdetails" id="refProfiles">
+          <summary>View representative soil properties</summary>
+          <table class="reftbl" aria-label="Representative soft-clay properties by soil group">
+            <thead><tr><th>Soft-clay parameter</th><th>G1</th><th>G2</th><th>G3</th></tr></thead>
+            <tbody>
+              <tr><td>S<sub>u</sub> (kPa)</td><td>25</td><td>16</td><td>11</td></tr>
+              <tr><td>γ (kN/m³)</td><td>20.0</td><td>16.2</td><td>15.0</td></tr>
+              <tr><td>E (kPa)</td><td>10,000</td><td>8,000</td><td>6,000</td></tr>
+              <tr><td>e</td><td>1.400</td><td>1.776</td><td>2.525</td></tr>
+              <tr><td>K<sub>0</sub></td><td>1.0</td><td>1.0</td><td>1.0</td></tr>
+            </tbody>
+          </table>
+        </details>
+
+        <div class="soilprofilepanel" id="autoPanel" hidden>
+          <div class="soilprofilewrap">
+            <table class="soilprofile" aria-label="Soil profile parameters">
+              <thead><tr><th>Parameter</th><th>Soft clay</th><th>Stiff clay</th><th>Sand</th><th>Unit</th></tr></thead>
+              <tbody>
+                <tr><td>γ</td><td><input class="used" id="soilGamma" type="number" step="0.1" value="16.2" title="Used by Soil Group classifier"></td><td><input id="stiffGamma" type="number" step="0.1" value="16.8"></td><td><input id="sandGamma" type="number" step="0.1" value="20.0"></td><td>kN/m³</td></tr>
+                <tr><td>S<sub>u</sub></td><td><input id="softSu" type="number" step="0.1" value="16"></td><td><input id="stiffSu" type="number" step="0.1" value="30"></td><td><input id="sandSu" type="number" step="0.1" placeholder="–"></td><td>kN/m²</td></tr>
+                <tr><td>E</td><td><input id="softE" type="number" step="100" value="8000"></td><td><input id="stiffE" type="number" step="100" value="25000"></td><td><input id="sandE" type="number" step="100" value="80000"></td><td>kN/m²</td></tr>
+                <tr><td>c</td><td><input id="softC" type="number" step="0.1" value="0"></td><td><input id="stiffC" type="number" step="0.1" value="0"></td><td><input id="sandC" type="number" step="0.1" value="16.4"></td><td>kN/m²</td></tr>
+                <tr><td>φ</td><td><input id="softPhi" type="number" step="0.01" value="21"></td><td><input id="stiffPhi" type="number" step="0.01" value="22"></td><td><input id="sandPhi" type="number" step="0.01" value="32.14"></td><td>°</td></tr>
+                <tr><td>Poisson ratio, ν</td><td><input id="softNu" type="number" step="0.01" value="0.20"></td><td><input id="stiffNu" type="number" step="0.01" value="0.20"></td><td><input id="sandNu" type="number" step="0.01" value="0.20"></td><td>–</td></tr>
+                <tr><td>Void ratio, e</td><td><input class="used" id="soilVoid" type="number" step="0.001" value="1.776" title="Used by Soil Group classifier"></td><td><input id="stiffVoid" type="number" step="0.001" value="1.345"></td><td><input id="sandVoid" type="number" step="0.001" value="0.700"></td><td>–</td></tr>
+                <tr><td>K<sub>0</sub></td><td><input id="softK0" type="number" step="0.01" value="1.00"></td><td><input id="stiffK0" type="number" step="0.01" value="0.70"></td><td><input id="sandK0" type="number" step="0.01" value="0.50"></td><td>–</td></tr>
+                <tr><td>Layer thickness, T</td><td><input class="used" id="soilThick" type="number" step="0.1" value="15.0" title="Used by Soil Group classifier"></td><td><input id="stiffThick" type="number" step="0.1" placeholder="optional"></td><td><input id="sandThick" type="number" step="0.1" placeholder="optional"></td><td>m</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="profilehelp"><span class="usedkey">Classifier inputs: soft-clay γ, e and T</span><span>Other fields are profile information only and are not passed to Hcr / FS models.</span></div>
+          <div class="suggestion">
+            <div>
+              <div class="meta">Suggested soil group · score <span id="soilScore">–</span></div>
+              <div class="big" id="soilGroupOut">–</div>
+              <div class="soilref" id="soilRef">Enter valid soil parameters</div>
+            </div>
+            <button type="button" id="useSuggestedG" disabled>Use suggested group</button>
+          </div>
+        </div>
+      </div>
+      <div class="field">
+        <label>Soil group G <span class="note" id="gModeLabel">(manual)</span></label>
+        <div class="seg" id="segG"></div>
+      </div>
+      <div class="field">
+        <label>Water condition</label>
+        <div class="seg water" id="segW"></div>
+      </div>
+      <div class="field">
+        <div class="slabel"><label>Slope angle θ</label><b><span id="thVal">40</span>°</b></div>
+        <input type="range" id="th" min="20" max="80" step="1" value="40">
+        <div class="ticks"><span>20</span><span>30</span><span>40</span><span>50</span><span>60</span><span>70</span><span>80</span></div>
+      </div>
+      <div class="field">
+        <div class="slabel"><label>Excavation depth H</label><b><span id="hVal">4.0</span> m</b></div>
+        <input type="range" id="H" min="1" max="10" step="0.1" value="4">
+        <div class="ticks"><span>1</span><span>10 m</span></div>
+      </div>
+      <div class="caveat">
+        Select G1/G2/G3 directly for normal use. The optional soil-profile classifier only suggests a group; the user must confirm it before the selected G changes. The classifier currently uses only soft-clay γ, e and T.
+      </div>
+      <div class="caveat">
+        AI values come from the latest stored prediction files. Off-grid values are linearly interpolated; the browser does not execute the trained AI weights.
+      </div>
+    </aside>
+
+    <div>
+      <div class="section">
+        <div class="cap">
+          <div><p class="eyebrow" style="margin:0">Scaled cross-section</p><strong id="caseTitle" class="mono" style="font-size:13px"></strong></div>
+          <span class="note" id="caseNote"></span>
+        </div>
+        <svg id="sect" viewBox="0 0 900 470" role="img" aria-label="Dimensioned excavation cross-section"></svg>
+        <div class="legend">
+          <span><i style="border-color:var(--eq);border-top-style:dashed"></i>Proposed Eq. Hcr</span>
+          <span><i style="border-color:var(--xgb);border-top-style:dashed"></i>XGBoost Hcr</span>
+          <span><i style="border-color:var(--xd);border-top-style:dashed"></i>xDeepFM Hcr</span>
+        </div>
+      </div>
+
+      <div class="methods">
+        <article class="method eq">
+          <div class="methodhead"><div><div class="methodname">Proposed Equation</div><div class="methodsub">Method A + Softplus-7</div></div><span class="tag">Closed-form</span></div>
+          <div class="metricgrid">
+            <div class="metric"><div class="k">Hcr</div><div class="v"><span id="eqHcr">–</span><span class="u">m</span></div><div class="s">Method A</div></div>
+            <div class="metric"><div class="k">FS at H</div><div class="v" id="eqFS">–</div><div class="s">Softplus-7</div></div>
+          </div>
+          <div class="statusline"><span class="note">H compared with Hcr</span><span id="eqStatus" class="status">–</span></div>
+          <div class="bench" id="benchEq"></div>
+        </article>
+
+        <article class="method xgb">
+          <div class="methodhead"><div><div class="methodname">XGBoost</div><div class="methodsub">Latest stored predictions</div></div><span class="tag">ML</span></div>
+          <div class="metricgrid">
+            <div class="metric"><div class="k">Hcr</div><div class="v"><span id="xgbHcr">–</span><span class="u">m</span></div><div class="s" id="xgbHcrSrc">–</div></div>
+            <div class="metric"><div class="k">FS at H</div><div class="v" id="xgbFS">–</div><div class="s" id="xgbFSSrc">–</div></div>
+          </div>
+          <div class="statusline"><span class="note">H compared with Hcr</span><span id="xgbStatus" class="status">–</span></div>
+          <div class="bench" id="benchXgb"></div>
+        </article>
+
+        <article class="method xd">
+          <div class="methodhead"><div><div class="methodname">xDeepFM</div><div class="methodsub">Latest stored predictions</div></div><span class="tag">ML</span></div>
+          <div class="metricgrid">
+            <div class="metric"><div class="k">Hcr</div><div class="v"><span id="xdHcr">–</span><span class="u">m</span></div><div class="s" id="xdHcrSrc">–</div></div>
+            <div class="metric"><div class="k">FS at H</div><div class="v" id="xdFS">–</div><div class="s" id="xdFSSrc">–</div></div>
+          </div>
+          <div class="statusline"><span class="note">H compared with Hcr</span><span id="xdStatus" class="status">–</span></div>
+          <div class="bench" id="benchXd"></div>
+        </article>
+      </div>
+
+      <div class="compare">
+        <div class="mini"><div class="k">Hcr spread across 3 methods</div><div class="v" id="hcrSpread">–</div></div>
+        <div class="mini"><div class="k">FS spread across 3 methods</div><div class="v" id="fsSpread">–</div></div>
+        <div class="mini"><div class="k">Agreement on depth status</div><div class="v" id="agree">–</div></div>
+      </div>
+
+      <div class="section" style="margin-top:14px">
+        <div class="cap">
+          <div><p class="eyebrow" style="margin:0">Factor of safety against depth</p><strong class="mono" style="font-size:13px">FS vs H</strong></div>
+          <span class="note">FS = 1 shown as reference</span>
+        </div>
+        <svg id="fschart" viewBox="0 0 720 330" role="img"></svg>
+        <div class="legend">
+          <span><i style="border-color:var(--eq)"></i>Proposed Eq.</span>
+          <span><i style="border-color:var(--xgb)"></i>XGBoost</span>
+          <span><i style="border-color:var(--xd);border-top-style:dashed"></i>xDeepFM</span>
+          <span><i style="border-color:var(--fail);border-top-style:dashed"></i>FS = 1</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<section id="tab-accuracy" hidden>
+  <h2>Accuracy against FEM</h2>
+  <div class="caveat">
+    All three methods are evaluated on the same FEM reference database. Standard Hcr regression metrics use the 47 curves with a bounded FEM critical-depth interval; the 16 right-censored curves are assessed through FEM interval coverage. FS metrics use all 372 FEM points. No data-split labels are shown.
+  </div>
+
+  <div class="acc-cards">
+    <article class="acc-card eq"><h3>Proposed Equation</h3><div class="acc-block" id="accEq"></div></article>
+    <article class="acc-card xgb"><h3>XGBoost</h3><div class="acc-block" id="accXgb"></div></article>
+    <article class="acc-card xd"><h3>xDeepFM</h3><div class="acc-block" id="accXd"></div></article>
+  </div>
+
+  <div class="section">
+    <div class="cap">
+      <div><p class="eyebrow" style="margin:0">Common-basis metrics</p><strong class="mono" style="font-size:13px">Hcr vs FEM</strong></div>
+      <span class="note">47 bounded Hcr values + 63-curve interval coverage</span>
+    </div>
+    <div style="overflow:auto"><table class="acctbl" id="hcrAccTbl"></table></div>
+  </div>
+
+  <div class="section" style="margin-top:14px">
+    <div class="cap">
+      <div><p class="eyebrow" style="margin:0">Common-basis metrics</p><strong class="mono" style="font-size:13px">FS vs FEM</strong></div>
+      <span class="note">372 FEM points</span>
+    </div>
+    <div style="overflow:auto"><table class="acctbl" id="fsAccTbl"></table></div>
+  </div>
+
+  <div class="chart2">
+    <div class="section">
+      <div class="cap"><strong class="mono" style="font-size:13px">Hcr — predicted vs FEM</strong><span class="note">Bounded curves only</span></div>
+      <svg id="parityHcr" viewBox="0 0 520 430" role="img"></svg>
+      <div class="legend"><span><i style="border-color:var(--eq)"></i>Proposed Eq.</span><span><i style="border-color:var(--xgb)"></i>XGBoost</span><span><i style="border-color:var(--xd)"></i>xDeepFM</span></div>
+    </div>
+    <div class="section">
+      <div class="cap"><strong class="mono" style="font-size:13px">FS — predicted vs FEM</strong><span class="note">All FEM points</span></div>
+      <svg id="parityFS" viewBox="0 0 520 430" role="img"></svg>
+      <div class="legend"><span><i style="border-color:var(--eq)"></i>Proposed Eq.</span><span><i style="border-color:var(--xgb)"></i>XGBoost</span><span><i style="border-color:var(--xd)"></i>xDeepFM</span></div>
+    </div>
+  </div>
+
+  <div class="caveat">
+    “Agreement” in the cards is shown as 100 − MAPE for readability; use R², RMSE, MAE and MAPE as the formal accuracy statistics in reporting.
+  </div>
+</section>
+
+<section id="tab-method" hidden>
+  <h2>Proposed engineering equations</h2>
+  <div class="grid2">
+    <div class="panel eqbox">
+      <p class="eyebrow">Hcr — Method A</p>
+      <div class="formula">
+Hcr = c0 + c1·G + c2·A² + c3·W + c4·W² + c5·A·W<br>
+c0 = 15.32989969<br>
+c1 = −1.72629320<br>
+c2 = −0.00058397<br>
+c3 = −9.42047249<br>
+c4 = 2.99666733<br>
+c5 = 0.00860941<br><br>
+A = θ (degrees)<br>
+W = 0 WET, 1 DRY, 2 RAPID
+      </div>
+    </div>
+    <div class="panel eqbox">
+      <p class="eyebrow">FS — Softplus-7</p>
+      <div class="formula">
+z = b0 + b1·ln(H) + b2·T + b3·G + b4·W + b5·ln(H)·G + b6·T²<br>
+FS = 1 + ln(1 + exp(z))<br><br>
+b0 = 6.808680<br>
+b1 = −2.971959<br>
+b2 = −0.571198<br>
+b3 = −1.238220<br>
+b4 = −1.881010<br>
+b5 = 0.427553<br>
+b6 = 0.052114<br><br>
+T = tan(θ)<br>
+W = 0 WET, 1 DRY/RAPID
+      </div>
+    </div>
+  </div>
+
+  <h2>How the three routes are used in this page</h2>
+  <div class="grid2">
+    <div class="panel pad">
+      <p class="eyebrow">Engineering equation</p>
+      <dl class="kv"><dt>Hcr</dt><dd>Method A, evaluated directly in the browser</dd><dt>FS</dt><dd>Softplus-7, evaluated directly in the browser</dd><dt>Soil group</dt><dd>Manual selection by default; optional project-specific classifier suggests G1/G2/G3 from highlighted soft-clay γ, e and T, with user confirmation</dd><dt>Role</dt><dd>Transparent closed-form engineering estimate</dd></dl>
+    </div>
+    <div class="panel pad">
+      <p class="eyebrow">AI / ML routes</p>
+      <dl class="kv"><dt>XGBoost</dt><dd>Values loaded from the latest XGBoost result workbook</dd><dt>xDeepFM</dt><dd>Values loaded from the latest xDeepFM result workbook</dd><dt>Interpolation</dt><dd>Linear interpolation is used between stored θ and H points</dd></dl>
+    </div>
+  </div>
+  <div class="caveat">The three methods are intentionally shown independently. Method A and Softplus-7 are FEM-calibrated engineering equations; they are not compressed or distilled forms of xDeepFM or XGBoost.</div>
+</section>
+</main>
+
+<footer>Built from the latest XGBoost and xDeepFM predictions, the final Method A / Softplus-7 equations, and the common FEM reference database.</footer>
+
+<script id="DATA" type="application/json">{"curves":[{"id":"G1_DRY_20","G":1,"W":"DRY","th":20,"xgb":9.0636644,"xd":9.2891283,"fem":10.0,"ls":10.0,"ff":null,"cens":true,"eq":7.1184015},{"id":"G1_DRY_30","G":1,"W":"DRY","th":30,"xgb":7.3623924,"xd":7.4778671,"fem":7.5,"ls":7.0,"ff":8.0,"cens":false,"eq":6.9125106},{"id":"G1_DRY_40","G":1,"W":"DRY","th":40,"xgb":6.5813384,"xd":6.6033182,"fem":6.5,"ls":6.0,"ff":7.0,"cens":false,"eq":6.5898257},{"id":"G1_DRY_50","G":1,"W":"DRY","th":50,"xgb":6.3981962,"xd":6.1895118,"fem":6.5,"ls":6.0,"ff":7.0,"cens":false,"eq":6.1503468},{"id":"G1_DRY_60","G":1,"W":"DRY","th":60,"xgb":5.596436,"xd":5.7963519,"fem":5.5,"ls":5.0,"ff":6.0,"cens":false,"eq":5.5940739},{"id":"G1_DRY_70","G":1,"W":"DRY","th":70,"xgb":5.2274413,"xd":5.2247,"fem":5.5,"ls":5.0,"ff":6.0,"cens":false,"eq":4.921007},{"id":"G1_DRY_80","G":1,"W":"DRY","th":80,"xgb":4.5669193,"xd":4.3462548,"fem":4.5,"ls":4.0,"ff":5.0,"cens":false,"eq":4.1311461},{"id":"G1_RAPID_20","G":1,"W":"RAPID","th":20,"xgb":9.6806765,"xd":10.1251144,"fem":10.0,"ls":10.0,"ff":null,"cens":true,"eq":6.8601192},{"id":"G1_RAPID_30","G":1,"W":"RAPID","th":30,"xgb":7.445426,"xd":7.5324469,"fem":7.5,"ls":7.0,"ff":8.0,"cens":false,"eq":6.7403224},{"id":"G1_RAPID_40","G":1,"W":"RAPID","th":40,"xgb":6.6448917,"xd":6.2588544,"fem":6.5,"ls":6.0,"ff":7.0,"cens":false,"eq":6.5037316},{"id":"G1_RAPID_50","G":1,"W":"RAPID","th":50,"xgb":6.4462609,"xd":5.7212591,"fem":6.5,"ls":6.0,"ff":7.0,"cens":false,"eq":6.1503468},{"id":"G1_RAPID_60","G":1,"W":"RAPID","th":60,"xgb":5.6243567,"xd":5.4760356,"fem":5.5,"ls":5.0,"ff":6.0,"cens":false,"eq":5.680168},{"id":"G1_RAPID_70","G":1,"W":"RAPID","th":70,"xgb":5.3376441,"xd":5.1961627,"fem":5.5,"ls":5.0,"ff":6.0,"cens":false,"eq":5.0931952},{"id":"G1_RAPID_80","G":1,"W":"RAPID","th":80,"xgb":4.6332312,"xd":4.5257621,"fem":4.5,"ls":4.0,"ff":5.0,"cens":false,"eq":4.3894284},{"id":"G1_WET_20","G":1,"W":"WET","th":20,"xgb":11.4585714,"xd":15.5897436,"fem":10.0,"ls":10.0,"ff":null,"cens":true,"eq":13.3700185},{"id":"G1_WET_30","G":1,"W":"WET","th":30,"xgb":10.1301918,"xd":13.0642929,"fem":10.0,"ls":10.0,"ff":null,"cens":true,"eq":13.0780335},{"id":"G1_WET_40","G":1,"W":"WET","th":40,"xgb":10.0597296,"xd":11.8903065,"fem":10.0,"ls":10.0,"ff":null,"cens":true,"eq":12.6692545},{"id":"G1_WET_50","G":1,"W":"WET","th":50,"xgb":10.072999,"xd":11.4043093,"fem":10.0,"ls":10.0,"ff":null,"cens":true,"eq":12.1436815},{"id":"G1_WET_60","G":1,"W":"WET","th":60,"xgb":9.7936077,"xd":11.0610142,"fem":10.0,"ls":10.0,"ff":null,"cens":true,"eq":11.5013145},{"id":"G1_WET_70","G":1,"W":"WET","th":70,"xgb":9.934164,"xd":10.4859314,"fem":10.0,"ls":10.0,"ff":null,"cens":true,"eq":10.7421535},{"id":"G1_WET_80","G":1,"W":"WET","th":80,"xgb":9.2873135,"xd":9.4213667,"fem":9.5,"ls":9.0,"ff":10.0,"cens":false,"eq":9.8661985},{"id":"G2_DRY_20","G":2,"W":"DRY","th":20,"xgb":5.1484962,"xd":5.1636634,"fem":5.5,"ls":5.0,"ff":6.0,"cens":false,"eq":5.3921083},{"id":"G2_DRY_30","G":2,"W":"DRY","th":30,"xgb":4.5925193,"xd":4.6311913,"fem":4.5,"ls":4.0,"ff":5.0,"cens":false,"eq":5.1862174},{"id":"G2_DRY_40","G":2,"W":"DRY","th":40,"xgb":4.5237665,"xd":4.4815888,"fem":4.5,"ls":4.0,"ff":5.0,"cens":false,"eq":4.8635325},{"id":"G2_DRY_50","G":2,"W":"DRY","th":50,"xgb":4.5133138,"xd":4.4224176,"fem":4.5,"ls":4.0,"ff":5.0,"cens":false,"eq":4.4240536},{"id":"G2_DRY_60","G":2,"W":"DRY","th":60,"xgb":4.1460905,"xd":4.2482486,"fem":4.5,"ls":4.0,"ff":5.0,"cens":false,"eq":3.8677807},{"id":"G2_DRY_70","G":2,"W":"DRY","th":70,"xgb":3.6694379,"xd":3.7581747,"fem":3.5,"ls":3.0,"ff":4.0,"cens":false,"eq":3.1947138},{"id":"G2_DRY_80","G":2,"W":"DRY","th":80,"xgb":3.4799116,"xd":3.4114926,"fem":3.5,"ls":3.0,"ff":4.0,"cens":false,"eq":2.4048529},{"id":"G2_RAPID_20","G":2,"W":"RAPID","th":20,"xgb":5.3979359,"xd":5.4147334,"fem":5.5,"ls":5.0,"ff":6.0,"cens":false,"eq":5.133826},{"id":"G2_RAPID_30","G":2,"W":"RAPID","th":30,"xgb":4.6085534,"xd":4.6798129,"fem":4.5,"ls":4.0,"ff":5.0,"cens":false,"eq":5.0140292},{"id":"G2_RAPID_40","G":2,"W":"RAPID","th":40,"xgb":4.524888,"xd":4.476975,"fem":4.5,"ls":4.0,"ff":5.0,"cens":false,"eq":4.7774384},{"id":"G2_RAPID_50","G":2,"W":"RAPID","th":50,"xgb":4.5037241,"xd":4.4261565,"fem":4.5,"ls":4.0,"ff":5.0,"cens":false,"eq":4.4240536},{"id":"G2_RAPID_60","G":2,"W":"RAPID","th":60,"xgb":4.1070862,"xd":4.3076024,"fem":4.5,"ls":4.0,"ff":5.0,"cens":false,"eq":3.9538748},{"id":"G2_RAPID_70","G":2,"W":"RAPID","th":70,"xgb":3.7077701,"xd":3.9287398,"fem":3.5,"ls":3.0,"ff":4.0,"cens":false,"eq":3.366902},{"id":"G2_RAPID_80","G":2,"W":"RAPID","th":80,"xgb":3.4846396,"xd":3.4301779,"fem":3.5,"ls":3.0,"ff":4.0,"cens":false,"eq":2.6631352},{"id":"G2_WET_20","G":2,"W":"WET","th":20,"xgb":10.2026911,"xd":11.6831551,"fem":10.0,"ls":10.0,"ff":null,"cens":true,"eq":11.6437253},{"id":"G2_WET_30","G":2,"W":"WET","th":30,"xgb":9.9427748,"xd":10.7779388,"fem":10.0,"ls":10.0,"ff":null,"cens":true,"eq":11.3517403},{"id":"G2_WET_40","G":2,"W":"WET","th":40,"xgb":9.9398289,"xd":10.4646978,"fem":10.0,"ls":10.0,"ff":null,"cens":true,"eq":10.9429613},{"id":"G2_WET_50","G":2,"W":"WET","th":50,"xgb":9.9277048,"xd":10.3211937,"fem":10.0,"ls":10.0,"ff":null,"cens":true,"eq":10.4173883},{"id":"G2_WET_60","G":2,"W":"WET","th":60,"xgb":9.5918236,"xd":10.0775023,"fem":10.0,"ls":10.0,"ff":null,"cens":true,"eq":9.7750213},{"id":"G2_WET_70","G":2,"W":"WET","th":70,"xgb":9.3110037,"xd":9.4793758,"fem":9.5,"ls":9.0,"ff":10.0,"cens":false,"eq":9.0158603},{"id":"G2_WET_80","G":2,"W":"WET","th":80,"xgb":8.6361732,"xd":8.4235468,"fem":8.5,"ls":8.0,"ff":9.0,"cens":false,"eq":8.1399053},{"id":"G3_DRY_20","G":3,"W":"DRY","th":20,"xgb":3.5163836,"xd":3.5081837,"fem":3.5,"ls":3.0,"ff":4.0,"cens":false,"eq":3.6658151},{"id":"G3_DRY_30","G":3,"W":"DRY","th":30,"xgb":3.5008683,"xd":3.4683204,"fem":3.5,"ls":3.0,"ff":4.0,"cens":false,"eq":3.4599242},{"id":"G3_DRY_40","G":3,"W":"DRY","th":40,"xgb":3.4975019,"xd":3.3469918,"fem":3.5,"ls":3.0,"ff":4.0,"cens":false,"eq":3.1372393},{"id":"G3_DRY_50","G":3,"W":"DRY","th":50,"xgb":3.4336734,"xd":3.0046461,"fem":3.5,"ls":3.0,"ff":4.0,"cens":false,"eq":2.6977604},{"id":"G3_DRY_60","G":3,"W":"DRY","th":60,"xgb":2.5611632,"xd":2.591512,"fem":2.5,"ls":2.0,"ff":3.0,"cens":false,"eq":2.1414875},{"id":"G3_DRY_70","G":3,"W":"DRY","th":70,"xgb":2.4533768,"xd":2.3758252,"fem":2.5,"ls":2.0,"ff":3.0,"cens":false,"eq":1.4684206},{"id":"G3_DRY_80","G":3,"W":"DRY","th":80,"xgb":2.4837029,"xd":2.4882622,"fem":2.5,"ls":2.0,"ff":3.0,"cens":false,"eq":0.6785597},{"id":"G3_RAPID_20","G":3,"W":"RAPID","th":20,"xgb":3.5708826,"xd":3.4626141,"fem":3.5,"ls":3.0,"ff":4.0,"cens":false,"eq":3.4075328},{"id":"G3_RAPID_30","G":3,"W":"RAPID","th":30,"xgb":3.5094914,"xd":3.385432,"fem":3.5,"ls":3.0,"ff":4.0,"cens":false,"eq":3.287736},{"id":"G3_RAPID_40","G":3,"W":"RAPID","th":40,"xgb":3.5004933,"xd":3.3512473,"fem":3.5,"ls":3.0,"ff":4.0,"cens":false,"eq":3.0511452},{"id":"G3_RAPID_50","G":3,"W":"RAPID","th":50,"xgb":3.4307208,"xd":3.2049329,"fem":3.5,"ls":3.0,"ff":4.0,"cens":false,"eq":2.6977604},{"id":"G3_RAPID_60","G":3,"W":"RAPID","th":60,"xgb":2.5453398,"xd":2.7288539,"fem":2.5,"ls":2.0,"ff":3.0,"cens":false,"eq":2.2275816},{"id":"G3_RAPID_70","G":3,"W":"RAPID","th":70,"xgb":2.4779365,"xd":2.4092681,"fem":2.5,"ls":2.0,"ff":3.0,"cens":false,"eq":1.6406088},{"id":"G3_RAPID_80","G":3,"W":"RAPID","th":80,"xgb":2.4935539,"xd":2.3838441,"fem":2.5,"ls":2.0,"ff":3.0,"cens":false,"eq":0.936842},{"id":"G3_WET_20","G":3,"W":"WET","th":20,"xgb":9.8867064,"xd":10.4224548,"fem":10.0,"ls":10.0,"ff":null,"cens":true,"eq":9.9174321},{"id":"G3_WET_30","G":3,"W":"WET","th":30,"xgb":9.908289,"xd":10.3127842,"fem":10.0,"ls":10.0,"ff":null,"cens":true,"eq":9.6254471},{"id":"G3_WET_40","G":3,"W":"WET","th":40,"xgb":9.8893309,"xd":10.0983276,"fem":10.0,"ls":10.0,"ff":null,"cens":true,"eq":9.2166681},{"id":"G3_WET_50","G":3,"W":"WET","th":50,"xgb":9.5751944,"xd":9.5776596,"fem":9.5,"ls":9.0,"ff":10.0,"cens":false,"eq":8.6910951},{"id":"G3_WET_60","G":3,"W":"WET","th":60,"xgb":7.7241535,"xd":8.685936,"fem":8.5,"ls":8.0,"ff":9.0,"cens":false,"eq":8.0487281},{"id":"G3_WET_70","G":3,"W":"WET","th":70,"xgb":7.6218524,"xd":7.4108114,"fem":7.5,"ls":7.0,"ff":8.0,"cens":false,"eq":7.2895671},{"id":"G3_WET_80","G":3,"W":"WET","th":80,"xgb":7.4061375,"xd":5.8166099,"fem":6.5,"ls":6.0,"ff":7.0,"cens":false,"eq":6.4136121}],"fs":[{"id":"G1_DRY_20","G":1,"W":"DRY","th":20,"H":1.0,"xgb":4.3090582,"xd":4.4354897,"fem":4.451,"eq":4.5185454},{"id":"G1_DRY_20","G":1,"W":"DRY","th":20,"H":2.0,"xgb":2.7382364,"xd":2.7007148,"fem":2.749,"eq":2.888801},{"id":"G1_DRY_20","G":1,"W":"DRY","th":20,"H":3.0,"xgb":2.0463805,"xd":1.9261589,"fem":2.021,"eq":2.0986068},{"id":"G1_DRY_20","G":1,"W":"DRY","th":20,"H":4.0,"xgb":1.6372793,"xd":1.5107532,"fem":1.646,"eq":1.6739153},{"id":"G1_DRY_20","G":1,"W":"DRY","th":20,"H":5.0,"xgb":1.4763635,"xd":1.2704,"fem":1.418,"eq":1.4351512},{"id":"G1_DRY_20","G":1,"W":"DRY","th":20,"H":6.0,"xgb":1.2622602,"xd":1.1310964,"fem":1.285,"eq":1.2947823},{"id":"G1_DRY_20","G":1,"W":"DRY","th":20,"H":7.0,"xgb":1.1379869,"xd":1.0544322,"fem":1.208,"eq":1.2083165},{"id":"G1_DRY_20","G":1,"W":"DRY","th":20,"H":8.0,"xgb":1.1282666,"xd":1.0207741,"fem":1.167,"eq":1.1526249},{"id":"G1_DRY_20","G":1,"W":"DRY","th":20,"H":9.0,"xgb":1.1492416,"xd":1.0078394,"fem":1.155,"eq":1.1152823},{"id":"G1_DRY_20","G":1,"W":"DRY","th":20,"H":10.0,"xgb":1.1807981,"xd":1.0031645,"fem":1.155,"eq":1.089344},{"id":"G1_DRY_30","G":1,"W":"DRY","th":30,"H":1.0,"xgb":4.3560467,"xd":4.398612,"fem":4.371,"eq":4.4106183},{"id":"G1_DRY_30","G":1,"W":"DRY","th":30,"H":2.0,"xgb":2.6719246,"xd":2.6706786,"fem":2.637,"eq":2.7950558},{"id":"G1_DRY_30","G":1,"W":"DRY","th":30,"H":3.0,"xgb":1.9874616,"xd":1.9372737,"fem":1.97,"eq":2.0257264},{"id":"G1_DRY_30","G":1,"W":"DRY","th":30,"H":4.0,"xgb":1.583497,"xd":1.5221196,"fem":1.551,"eq":1.6208388},{"id":"G1_DRY_30","G":1,"W":"DRY","th":30,"H":5.0,"xgb":1.3354812,"xd":1.2614396,"fem":1.306,"eq":1.3972416},{"id":"G1_DRY_30","G":1,"W":"DRY","th":30,"H":6.0,"xgb":1.1119293,"xd":1.1144472,"fem":1.136,"eq":1.2674959},{"id":"G1_DRY_30","G":1,"W":"DRY","th":30,"H":7.0,"xgb":1.0266528,"xd":1.0466653,"fem":1.026,"eq":1.1882908},{"id":"G1_DRY_40","G":1,"W":"DRY","th":40,"H":1.0,"xgb":4.2643538,"xd":4.3445344,"fem":4.321,"eq":4.2850099},{"id":"G1_DRY_40","G":1,"W":"DRY","th":40,"H":2.0,"xgb":2.6354685,"xd":2.6449814,"fem":2.634,"eq":2.6877016},{"id":"G1_DRY_40","G":1,"W":"DRY","th":40,"H":3.0,"xgb":1.8821447,"xd":1.9302537,"fem":1.918,"eq":1.9441866},{"id":"G1_DRY_40","G":1,"W":"DRY","th":40,"H":4.0,"xgb":1.5041015,"xd":1.5038108,"fem":1.487,"eq":1.5627239},{"id":"G1_DRY_40","G":1,"W":"DRY","th":40,"H":5.0,"xgb":1.225572,"xd":1.234857,"fem":1.228,"eq":1.3564006},{"id":"G1_DRY_40","G":1,"W":"DRY","th":40,"H":6.0,"xgb":1.056199,"xd":1.0933428,"fem":1.055,"eq":1.2384266},{"id":"G1_DRY_50","G":1,"W":"DRY","th":50,"H":1.0,"xgb":4.2312937,"xd":4.2613087,"fem":4.234,"eq":4.1275532},{"id":"G1_DRY_50","G":1,"W":"DRY","th":50,"H":2.0,"xgb":2.629591,"xd":2.5847411,"fem":2.574,"eq":2.5560415},{"id":"G1_DRY_50","G":1,"W":"DRY","th":50,"H":3.0,"xgb":1.8636843,"xd":1.8848343,"fem":1.864,"eq":1.84715},{"id":"G1_DRY_50","G":1,"W":"DRY","th":50,"H":4.0,"xgb":1.4437608,"xd":1.4539877,"fem":1.464,"eq":1.4953719},{"id":"G1_DRY_50","G":1,"W":"DRY","th":50,"H":5.0,"xgb":1.1721929,"xd":1.186042,"fem":1.207,"eq":1.309962},{"id":"G1_DRY_50","G":1,"W":"DRY","th":50,"H":6.0,"xgb":1.0357488,"xd":1.0726333,"fem":1.032,"eq":1.2057929},{"id":"G1_DRY_60","G":1,"W":"DRY","th":60,"H":1.0,"xgb":4.1826773,"xd":4.0685296,"fem":4.112,"eq":3.9123297},{"id":"G1_DRY_60","G":1,"W":"DRY","th":60,"H":2.0,"xgb":2.4837513,"xd":2.4737926,"fem":2.471,"eq":2.3819385},{"id":"G1_DRY_60","G":1,"W":"DRY","th":60,"H":3.0,"xgb":1.8417675,"xd":1.7997345,"fem":1.782,"eq":1.7241804},{"id":"G1_DRY_60","G":1,"W":"DRY","th":60,"H":4.0,"xgb":1.3327893,"xd":1.364905,"fem":1.393,"eq":1.4129537},{"id":"G1_DRY_60","G":1,"W":"DRY","th":60,"H":5.0,"xgb":1.1226227,"xd":1.1406037,"fem":1.114,"eq":1.2544757},{"id":"G1_DRY_70","G":1,"W":"DRY","th":70,"H":1.0,"xgb":3.7283449,"xd":3.7564754,"fem":3.622,"eq":3.5913589},{"id":"G1_DRY_70","G":1,"W":"DRY","th":70,"H":2.0,"xgb":2.1883588,"xd":2.2970004,"fem":2.233,"eq":2.136761},{"id":"G1_DRY_70","G":1,"W":"DRY","th":70,"H":3.0,"xgb":1.6514452,"xd":1.6841063,"fem":1.664,"eq":1.5621281},{"id":"G1_DRY_70","G":1,"W":"DRY","th":70,"H":4.0,"xgb":1.2453287,"xd":1.2736013,"fem":1.275,"eq":1.3095663},{"id":"G1_DRY_70","G":1,"W":"DRY","th":70,"H":5.0,"xgb":1.0759385,"xd":1.1041244,"fem":1.041,"eq":1.1870192},{"id":"G1_DRY_80","G":1,"W":"DRY","th":80,"H":1.0,"xgb":3.3982432,"xd":3.3094501,"fem":3.326,"eq":3.2388859},{"id":"G1_DRY_80","G":1,"W":"DRY","th":80,"H":2.0,"xgb":1.9945436,"xd":2.061084,"fem":2.047,"eq":1.890759},{"id":"G1_DRY_80","G":1,"W":"DRY","th":80,"H":3.0,"xgb":1.4850023,"xd":1.503594,"fem":1.511,"eq":1.4135367},{"id":"G1_DRY_80","G":1,"W":"DRY","th":80,"H":4.0,"xgb":1.1894039,"xd":1.1983703,"fem":1.179,"eq":1.2201989},{"id":"G1_RAPID_20","G":1,"W":"RAPID","th":20,"H":1.0,"xgb":4.4054098,"xd":4.435524,"fem":4.447,"eq":4.5185454},{"id":"G1_RAPID_20","G":1,"W":"RAPID","th":20,"H":2.0,"xgb":2.7665269,"xd":2.7625976,"fem":2.774,"eq":2.888801},{"id":"G1_RAPID_20","G":1,"W":"RAPID","th":20,"H":3.0,"xgb":2.1014204,"xd":2.0017328,"fem":2.066,"eq":2.0986068},{"id":"G1_RAPID_20","G":1,"W":"RAPID","th":20,"H":4.0,"xgb":1.6929992,"xd":1.6296479,"fem":1.645,"eq":1.6739153},{"id":"G1_RAPID_20","G":1,"W":"RAPID","th":20,"H":5.0,"xgb":1.4029937,"xd":1.3987868,"fem":1.419,"eq":1.4351512},{"id":"G1_RAPID_20","G":1,"W":"RAPID","th":20,"H":6.0,"xgb":1.308321,"xd":1.2370148,"fem":1.282,"eq":1.2947823},{"id":"G1_RAPID_20","G":1,"W":"RAPID","th":20,"H":7.0,"xgb":1.1851399,"xd":1.1295027,"fem":1.206,"eq":1.2083165},{"id":"G1_RAPID_20","G":1,"W":"RAPID","th":20,"H":8.0,"xgb":1.1645377,"xd":1.0628936,"fem":1.165,"eq":1.1526249},{"id":"G1_RAPID_20","G":1,"W":"RAPID","th":20,"H":9.0,"xgb":1.1558613,"xd":1.029523,"fem":1.154,"eq":1.1152823},{"id":"G1_RAPID_20","G":1,"W":"RAPID","th":20,"H":10.0,"xgb":1.1552519,"xd":1.0140339,"fem":1.153,"eq":1.089344},{"id":"G1_RAPID_30","G":1,"W":"RAPID","th":30,"H":1.0,"xgb":4.4176564,"xd":4.4481964,"fem":4.365,"eq":4.4106183},{"id":"G1_RAPID_30","G":1,"W":"RAPID","th":30,"H":2.0,"xgb":2.6955495,"xd":2.7520401,"fem":2.692,"eq":2.7950558},{"id":"G1_RAPID_30","G":1,"W":"RAPID","th":30,"H":3.0,"xgb":1.9826094,"xd":2.0072894,"fem":1.967,"eq":2.0257264},{"id":"G1_RAPID_30","G":1,"W":"RAPID","th":30,"H":4.0,"xgb":1.5832651,"xd":1.6176622,"fem":1.56,"eq":1.6208388},{"id":"G1_RAPID_30","G":1,"W":"RAPID","th":30,"H":5.0,"xgb":1.2736111,"xd":1.3563471,"fem":1.308,"eq":1.3972416},{"id":"G1_RAPID_30","G":1,"W":"RAPID","th":30,"H":6.0,"xgb":1.1259726,"xd":1.193697,"fem":1.135,"eq":1.2674959},{"id":"G1_RAPID_30","G":1,"W":"RAPID","th":30,"H":7.0,"xgb":1.0282103,"xd":1.0929111,"fem":1.025,"eq":1.1882908},{"id":"G1_RAPID_40","G":1,"W":"RAPID","th":40,"H":1.0,"xgb":4.3468418,"xd":4.4284687,"fem":4.305,"eq":4.2850099},{"id":"G1_RAPID_40","G":1,"W":"RAPID","th":40,"H":2.0,"xgb":2.6596179,"xd":2.7230418,"fem":2.63,"eq":2.6877016},{"id":"G1_RAPID_40","G":1,"W":"RAPID","th":40,"H":3.0,"xgb":1.8711332,"xd":1.9820857,"fem":1.916,"eq":1.9441866},{"id":"G1_RAPID_40","G":1,"W":"RAPID","th":40,"H":4.0,"xgb":1.5050981,"xd":1.5668671,"fem":1.492,"eq":1.5627239},{"id":"G1_RAPID_40","G":1,"W":"RAPID","th":40,"H":5.0,"xgb":1.1793233,"xd":1.298897,"fem":1.225,"eq":1.3564006},{"id":"G1_RAPID_40","G":1,"W":"RAPID","th":40,"H":6.0,"xgb":1.0779806,"xd":1.1384654,"fem":1.055,"eq":1.2384266},{"id":"G1_RAPID_50","G":1,"W":"RAPID","th":50,"H":1.0,"xgb":4.173306,"xd":4.325839,"fem":4.529,"eq":4.1275532},{"id":"G1_RAPID_50","G":1,"W":"RAPID","th":50,"H":2.0,"xgb":2.6087375,"xd":2.6361585,"fem":2.571,"eq":2.5560415},{"id":"G1_RAPID_50","G":1,"W":"RAPID","th":50,"H":3.0,"xgb":1.8137701,"xd":1.9092295,"fem":1.86,"eq":1.84715},{"id":"G1_RAPID_50","G":1,"W":"RAPID","th":50,"H":4.0,"xgb":1.4455849,"xd":1.4947133,"fem":1.463,"eq":1.4953719},{"id":"G1_RAPID_50","G":1,"W":"RAPID","th":50,"H":5.0,"xgb":1.1530749,"xd":1.2301482,"fem":1.208,"eq":1.309962},{"id":"G1_RAPID_50","G":1,"W":"RAPID","th":50,"H":6.0,"xgb":1.0667043,"xd":1.0963194,"fem":1.032,"eq":1.2057929},{"id":"G1_RAPID_60","G":1,"W":"RAPID","th":60,"H":1.0,"xgb":4.1677504,"xd":4.1234426,"fem":4.148,"eq":3.9123297},{"id":"G1_RAPID_60","G":1,"W":"RAPID","th":60,"H":2.0,"xgb":2.4965615,"xd":2.4971871,"fem":2.491,"eq":2.3819385},{"id":"G1_RAPID_60","G":1,"W":"RAPID","th":60,"H":3.0,"xgb":1.8454556,"xd":1.7846549,"fem":1.769,"eq":1.7241804},{"id":"G1_RAPID_60","G":1,"W":"RAPID","th":60,"H":4.0,"xgb":1.3936194,"xd":1.3974503,"fem":1.385,"eq":1.4129537},{"id":"G1_RAPID_60","G":1,"W":"RAPID","th":60,"H":5.0,"xgb":1.1248045,"xd":1.1584711,"fem":1.138,"eq":1.2544757},{"id":"G1_RAPID_70","G":1,"W":"RAPID","th":70,"H":1.0,"xgb":3.7099745,"xd":3.7439148,"fem":3.642,"eq":3.5913589},{"id":"G1_RAPID_70","G":1,"W":"RAPID","th":70,"H":2.0,"xgb":2.2139471,"xd":2.3055563,"fem":2.25,"eq":2.136761},{"id":"G1_RAPID_70","G":1,"W":"RAPID","th":70,"H":3.0,"xgb":1.6429181,"xd":1.6633136,"fem":1.643,"eq":1.5621281},{"id":"G1_RAPID_70","G":1,"W":"RAPID","th":70,"H":4.0,"xgb":1.2524779,"xd":1.2854704,"fem":1.277,"eq":1.3095663},{"id":"G1_RAPID_70","G":1,"W":"RAPID","th":70,"H":5.0,"xgb":1.0489424,"xd":1.0972943,"fem":1.043,"eq":1.1870192},{"id":"G1_RAPID_80","G":1,"W":"RAPID","th":80,"H":1.0,"xgb":3.4046867,"xd":3.325382,"fem":3.334,"eq":3.2388859},{"id":"G1_RAPID_80","G":1,"W":"RAPID","th":80,"H":2.0,"xgb":2.0254347,"xd":2.0703282,"fem":2.039,"eq":1.890759},{"id":"G1_RAPID_80","G":1,"W":"RAPID","th":80,"H":3.0,"xgb":1.4740138,"xd":1.5273159,"fem":1.522,"eq":1.4135367},{"id":"G1_RAPID_80","G":1,"W":"RAPID","th":80,"H":4.0,"xgb":1.1893227,"xd":1.1821181,"fem":1.181,"eq":1.2201989},{"id":"G1_WET_20","G":1,"W":"WET","th":20,"H":1.0,"xgb":6.3643279,"xd":6.5748382,"fem":6.585,"eq":6.3741105},{"id":"G1_WET_20","G":1,"W":"WET","th":20,"H":2.0,"xgb":4.4865365,"xd":4.638876,"fem":4.573,"eq":4.6326197},{"id":"G1_WET_20","G":1,"W":"WET","th":20,"H":3.0,"xgb":3.4242494,"xd":3.5783496,"fem":3.528,"eq":3.6476027},{"id":"G1_WET_20","G":1,"W":"WET","th":20,"H":4.0,"xgb":2.8803604,"xd":2.9558754,"fem":2.934,"eq":2.989272},{"id":"G1_WET_20","G":1,"W":"WET","th":20,"H":5.0,"xgb":2.6529083,"xd":2.4904394,"fem":2.578,"eq":2.5209474},{"id":"G1_WET_20","G":1,"W":"WET","th":20,"H":6.0,"xgb":2.2874739,"xd":2.1673865,"fem":2.355,"eq":2.178358},{"id":"G1_WET_20","G":1,"W":"WET","th":20,"H":7.0,"xgb":2.0094683,"xd":1.9575835,"fem":2.238,"eq":1.9239989},{"id":"G1_WET_20","G":1,"W":"WET","th":20,"H":8.0,"xgb":1.8326824,"xd":1.8366077,"fem":2.171,"eq":1.7331783},{"id":"G1_WET_20","G":1,"W":"WET","th":20,"H":9.0,"xgb":1.7620708,"xd":1.7900486,"fem":2.165,"eq":1.5886657},{"id":"G1_WET_20","G":1,"W":"WET","th":20,"H":10.0,"xgb":1.7860408,"xd":1.8051008,"fem":2.153,"eq":1.4781504},{"id":"G1_WET_30","G":1,"W":"WET","th":30,"H":1.0,"xgb":6.3928256,"xd":6.4849787,"fem":6.464,"eq":6.263242},{"id":"G1_WET_30","G":1,"W":"WET","th":30,"H":2.0,"xgb":4.3786125,"xd":4.4653749,"fem":4.433,"eq":4.5243171},{"id":"G1_WET_30","G":1,"W":"WET","th":30,"H":3.0,"xgb":3.3108087,"xd":3.4604485,"fem":3.415,"eq":3.5445002},{"id":"G1_WET_30","G":1,"W":"WET","th":30,"H":4.0,"xgb":2.7522655,"xd":2.8338103,"fem":2.775,"eq":2.8938512},{"id":"G1_WET_30","G":1,"W":"WET","th":30,"H":5.0,"xgb":2.4862428,"xd":2.3753543,"fem":2.364,"eq":2.4349594},{"id":"G1_WET_30","G":1,"W":"WET","th":30,"H":6.0,"xgb":2.1561437,"xd":2.0591342,"fem":2.087,"eq":2.1025757},{"id":"G1_WET_30","G":1,"W":"WET","th":30,"H":7.0,"xgb":1.8418754,"xd":1.8556144,"fem":1.891,"eq":1.8583043},{"id":"G1_WET_30","G":1,"W":"WET","th":30,"H":8.0,"xgb":1.7097654,"xd":1.7372983,"fem":1.774,"eq":1.6768357},{"id":"G1_WET_30","G":1,"W":"WET","th":30,"H":9.0,"xgb":1.714854,"xd":1.6799285,"fem":1.715,"eq":1.5406195},{"id":"G1_WET_30","G":1,"W":"WET","th":30,"H":10.0,"xgb":1.7086076,"xd":1.6611466,"fem":1.705,"eq":1.4372537},{"id":"G1_WET_40","G":1,"W":"WET","th":40,"H":1.0,"xgb":6.1369252,"xd":6.4073048,"fem":6.356,"eq":6.1337725},{"id":"G1_WET_40","G":1,"W":"WET","th":40,"H":2.0,"xgb":4.2559309,"xd":4.3356142,"fem":4.32,"eq":4.3982174},{"id":"G1_WET_40","G":1,"W":"WET","th":40,"H":3.0,"xgb":3.1906855,"xd":3.3578207,"fem":3.298,"eq":3.4251685},{"id":"G1_WET_40","G":1,"W":"WET","th":40,"H":4.0,"xgb":2.6394601,"xd":2.7216425,"fem":2.683,"eq":2.784371},{"id":"G1_WET_40","G":1,"W":"WET","th":40,"H":5.0,"xgb":2.3049133,"xd":2.2632055,"fem":2.268,"eq":2.3373437},{"id":"G1_WET_40","G":1,"W":"WET","th":40,"H":6.0,"xgb":1.9801924,"xd":1.9517803,"fem":1.961,"eq":2.0175173},{"id":"G1_WET_40","G":1,"W":"WET","th":40,"H":7.0,"xgb":1.754126,"xd":1.7514243,"fem":1.735,"eq":1.7853816},{"id":"G1_WET_40","G":1,"W":"WET","th":40,"H":8.0,"xgb":1.6057242,"xd":1.627395,"fem":1.572,"eq":1.6149266},{"id":"G1_WET_40","G":1,"W":"WET","th":40,"H":9.0,"xgb":1.4791927,"xd":1.5493882,"fem":1.454,"eq":1.488296},{"id":"G1_WET_40","G":1,"W":"WET","th":40,"H":10.0,"xgb":1.4146647,"xd":1.4442315,"fem":1.422,"eq":1.3930546},{"id":"G1_WET_50","G":1,"W":"WET","th":50,"H":1.0,"xgb":5.9609756,"xd":6.2557859,"fem":6.31,"eq":5.9707114},{"id":"G1_WET_50","G":1,"W":"WET","th":50,"H":2.0,"xgb":4.2587547,"xd":4.196414,"fem":4.143,"eq":4.2400506},{"id":"G1_WET_50","G":1,"W":"WET","th":50,"H":3.0,"xgb":3.2480383,"xd":3.2442706,"fem":3.168,"eq":3.2767106},{"id":"G1_WET_50","G":1,"W":"WET","th":50,"H":4.0,"xgb":2.5941639,"xd":2.5975235,"fem":2.563,"eq":2.6497643},{"id":"G1_WET_50","G":1,"W":"WET","th":50,"H":5.0,"xgb":2.2163861,"xd":2.1385684,"fem":2.145,"eq":2.2189921},{"id":"G1_WET_50","G":1,"W":"WET","th":50,"H":6.0,"xgb":1.818548,"xd":1.8366773,"fem":1.872,"eq":1.915883},{"id":"G1_WET_50","G":1,"W":"WET","th":50,"H":7.0,"xgb":1.6738305,"xd":1.6411791,"fem":1.661,"eq":1.6994487},{"id":"G1_WET_50","G":1,"W":"WET","th":50,"H":8.0,"xgb":1.4894494,"xd":1.5084109,"fem":1.478,"eq":1.5428727},{"id":"G1_WET_50","G":1,"W":"WET","th":50,"H":9.0,"xgb":1.3474562,"xd":1.3981125,"fem":1.347,"eq":1.4280448},{"id":"G1_WET_50","G":1,"W":"WET","th":50,"H":10.0,"xgb":1.2648417,"xd":1.2624613,"fem":1.28,"eq":1.3426126},{"id":"G1_WET_60","G":1,"W":"WET","th":60,"H":1.0,"xgb":5.8091183,"xd":5.8886986,"fem":5.768,"eq":5.7461808},{"id":"G1_WET_60","G":1,"W":"WET","th":60,"H":2.0,"xgb":3.9991155,"xd":3.9943044,"fem":3.96,"eq":4.0236552},{"id":"G1_WET_60","G":1,"W":"WET","th":60,"H":3.0,"xgb":3.1309428,"xd":3.0708525,"fem":2.975,"eq":3.0761455},{"id":"G1_WET_60","G":1,"W":"WET","th":60,"H":4.0,"xgb":2.3749008,"xd":2.4450068,"fem":2.418,"eq":2.4711017},{"id":"G1_WET_60","G":1,"W":"WET","th":60,"H":5.0,"xgb":1.9879239,"xd":2.003593,"fem":2.012,"eq":2.065065},{"id":"G1_WET_60","G":1,"W":"WET","th":60,"H":6.0,"xgb":1.6468647,"xd":1.7109306,"fem":1.705,"eq":1.7863717},{"id":"G1_WET_60","G":1,"W":"WET","th":60,"H":7.0,"xgb":1.4052809,"xd":1.5241323,"fem":1.538,"eq":1.5919826},{"id":"G1_WET_60","G":1,"W":"WET","th":60,"H":8.0,"xgb":1.2985479,"xd":1.3815057,"fem":1.371,"eq":1.4542187},{"id":"G1_WET_60","G":1,"W":"WET","th":60,"H":9.0,"xgb":1.1415745,"xd":1.2440467,"fem":1.244,"eq":1.3549159},{"id":"G1_WET_60","G":1,"W":"WET","th":60,"H":10.0,"xgb":1.0565273,"xd":1.1506912,"fem":1.15,"eq":1.2820697},{"id":"G1_WET_70","G":1,"W":"WET","th":70,"H":1.0,"xgb":5.4230413,"xd":5.3558226,"fem":5.455,"eq":5.4067653},{"id":"G1_WET_70","G":1,"W":"WET","th":70,"H":2.0,"xgb":3.7580841,"xd":3.6464078,"fem":3.753,"eq":3.7003902},{"id":"G1_WET_70","G":1,"W":"WET","th":70,"H":3.0,"xgb":2.8655658,"xd":2.8125691,"fem":2.761,"eq":2.7832186},{"id":"G1_WET_70","G":1,"W":"WET","th":70,"H":4.0,"xgb":2.2493048,"xd":2.2392282,"fem":2.252,"eq":2.2179459},{"id":"G1_WET_70","G":1,"W":"WET","th":70,"H":5.0,"xgb":1.8377378,"xd":1.8444407,"fem":1.869,"eq":1.8540292},{"id":"G1_WET_70","G":1,"W":"WET","th":70,"H":6.0,"xgb":1.6028596,"xd":1.5839438,"fem":1.608,"eq":1.6142907},{"id":"G1_WET_70","G":1,"W":"WET","th":70,"H":7.0,"xgb":1.3954109,"xd":1.3994281,"fem":1.401,"eq":1.4530502},{"id":"G1_WET_70","G":1,"W":"WET","th":70,"H":8.0,"xgb":1.2864978,"xd":1.2567706,"fem":1.262,"eq":1.342182},{"id":"G1_WET_70","G":1,"W":"WET","th":70,"H":9.0,"xgb":1.1249907,"xd":1.1479419,"fem":1.147,"eq":1.2641783},{"id":"G1_WET_70","G":1,"W":"WET","th":70,"H":10.0,"xgb":1.0432909,"xd":1.0878781,"fem":1.042,"eq":1.2080375},{"id":"G1_WET_80","G":1,"W":"WET","th":80,"H":1.0,"xgb":4.3903151,"xd":4.5727057,"fem":4.375,"eq":5.0252214},{"id":"G1_WET_80","G":1,"W":"WET","th":80,"H":2.0,"xgb":3.1478035,"xd":3.1229444,"fem":2.993,"eq":3.3443758},{"id":"G1_WET_80","G":1,"W":"WET","th":80,"H":3.0,"xgb":2.4836855,"xd":2.4459906,"fem":2.458,"eq":2.4724288},{"id":"G1_WET_80","G":1,"W":"WET","th":80,"H":4.0,"xgb":1.9810594,"xd":1.9735492,"fem":1.978,"eq":1.9616161},{"id":"G1_WET_80","G":1,"W":"WET","th":80,"H":5.0,"xgb":1.6647334,"xd":1.6608282,"fem":1.681,"eq":1.6501804},{"id":"G1_WET_80","G":1,"W":"WET","th":80,"H":6.0,"xgb":1.4502987,"xd":1.4496427,"fem":1.442,"eq":1.4548478},{"id":"G1_WET_80","G":1,"W":"WET","th":80,"H":7.0,"xgb":1.2794328,"xd":1.2957028,"fem":1.274,"eq":1.3286376},{"id":"G1_WET_80","G":1,"W":"WET","th":80,"H":8.0,"xgb":1.1278104,"xd":1.1629721,"fem":1.142,"eq":1.2445124},{"id":"G1_WET_80","G":1,"W":"WET","th":80,"H":9.0,"xgb":1.028718,"xd":1.0918999,"fem":1.027,"eq":1.1867033},{"id":"G2_DRY_20","G":2,"W":"DRY","th":20,"H":1.0,"xgb":3.2764316,"xd":3.3259826,"fem":3.248,"eq":3.3504189},{"id":"G2_DRY_20","G":2,"W":"DRY","th":20,"H":2.0,"xgb":2.1707735,"xd":2.1420114,"fem":2.1,"eq":2.1593636},{"id":"G2_DRY_20","G":2,"W":"DRY","th":20,"H":3.0,"xgb":1.5368352,"xd":1.5609493,"fem":1.552,"eq":1.656174},{"id":"G2_DRY_20","G":2,"W":"DRY","th":20,"H":4.0,"xgb":1.2034402,"xd":1.290122,"fem":1.234,"eq":1.4084072},{"id":"G2_DRY_20","G":2,"W":"DRY","th":20,"H":5.0,"xgb":1.1187531,"xd":1.1417236,"fem":1.033,"eq":1.2734713},{"id":"G2_DRY_30","G":2,"W":"DRY","th":30,"H":1.0,"xgb":3.1925149,"xd":3.2210424,"fem":3.189,"eq":3.2501769},{"id":"G2_DRY_30","G":2,"W":"DRY","th":30,"H":2.0,"xgb":2.0795703,"xd":2.0566154,"fem":2.04,"eq":2.0842524},{"id":"G2_DRY_30","G":2,"W":"DRY","th":30,"H":3.0,"xgb":1.4900196,"xd":1.5083358,"fem":1.501,"eq":1.6041114},{"id":"G2_DRY_30","G":2,"W":"DRY","th":30,"H":4.0,"xgb":1.1855372,"xd":1.2383108,"fem":1.194,"eq":1.3724167},{"id":"G2_DRY_40","G":2,"W":"DRY","th":40,"H":1.0,"xgb":3.1293066,"xd":3.1319947,"fem":3.146,"eq":3.1345339},{"id":"G2_DRY_40","G":2,"W":"DRY","th":40,"H":2.0,"xgb":2.0264344,"xd":1.9915738,"fem":1.99,"eq":2.0000097},{"id":"G2_DRY_40","G":2,"W":"DRY","th":40,"H":3.0,"xgb":1.4392276,"xd":1.4618859,"fem":1.462,"eq":1.5471687},{"id":"G2_DRY_40","G":2,"W":"DRY","th":40,"H":4.0,"xgb":1.1560729,"xd":1.1888953,"fem":1.159,"eq":1.3337218},{"id":"G2_DRY_50","G":2,"W":"DRY","th":50,"H":1.0,"xgb":2.9983237,"xd":3.0193286,"fem":2.974,"eq":2.9913009},{"id":"G2_DRY_50","G":2,"W":"DRY","th":50,"H":2.0,"xgb":1.9109157,"xd":1.9214196,"fem":1.93,"eq":1.8994445},{"id":"G2_DRY_50","G":2,"W":"DRY","th":50,"H":3.0,"xgb":1.3413929,"xd":1.3778038,"fem":1.412,"eq":1.4812615},{"id":"G2_DRY_50","G":2,"W":"DRY","th":50,"H":4.0,"xgb":1.1083689,"xd":1.1508362,"fem":1.115,"eq":1.2898264},{"id":"G2_DRY_60","G":2,"W":"DRY","th":60,"H":1.0,"xgb":2.7498403,"xd":2.8780615,"fem":2.772,"eq":2.7990899},{"id":"G2_DRY_60","G":2,"W":"DRY","th":60,"H":2.0,"xgb":1.8222868,"xd":1.84308,"fem":1.813,"eq":1.7714609},{"id":"G2_DRY_60","G":2,"W":"DRY","th":60,"H":3.0,"xgb":1.2856297,"xd":1.3032207,"fem":1.34,"eq":1.4007457},{"id":"G2_DRY_60","G":2,"W":"DRY","th":60,"H":4.0,"xgb":1.0625887,"xd":1.1185086,"fem":1.052,"eq":1.2375286},{"id":"G2_DRY_70","G":2,"W":"DRY","th":70,"H":1.0,"xgb":2.7069082,"xd":2.7214231,"fem":2.765,"eq":2.5216232},{"id":"G2_DRY_70","G":2,"W":"DRY","th":70,"H":2.0,"xgb":1.7272003,"xd":1.7268751,"fem":1.738,"eq":1.6017369},{"id":"G2_DRY_70","G":2,"W":"DRY","th":70,"H":3.0,"xgb":1.2543836,"xd":1.243533,"fem":1.248,"eq":1.2999717},{"id":"G2_DRY_80","G":2,"W":"DRY","th":80,"H":1.0,"xgb":2.5836866,"xd":2.5056391,"fem":2.569,"eq":2.2326164},{"id":"G2_DRY_80","G":2,"W":"DRY","th":80,"H":2.0,"xgb":1.59706,"xd":1.5939231,"fem":1.621,"eq":1.4448647},{"id":"G2_DRY_80","G":2,"W":"DRY","th":80,"H":3.0,"xgb":1.1756366,"xd":1.1834503,"fem":1.163,"eq":1.2130851},{"id":"G2_RAPID_20","G":2,"W":"RAPID","th":20,"H":1.0,"xgb":3.2143402,"xd":3.26384,"fem":3.231,"eq":3.3504189},{"id":"G2_RAPID_20","G":2,"W":"RAPID","th":20,"H":2.0,"xgb":2.1251104,"xd":2.1373205,"fem":2.104,"eq":2.1593636},{"id":"G2_RAPID_20","G":2,"W":"RAPID","th":20,"H":3.0,"xgb":1.563038,"xd":1.5651639,"fem":1.557,"eq":1.656174},{"id":"G2_RAPID_20","G":2,"W":"RAPID","th":20,"H":4.0,"xgb":1.215071,"xd":1.2335798,"fem":1.243,"eq":1.4084072},{"id":"G2_RAPID_20","G":2,"W":"RAPID","th":20,"H":5.0,"xgb":1.0430737,"xd":1.0980637,"fem":1.038,"eq":1.2734713},{"id":"G2_RAPID_30","G":2,"W":"RAPID","th":30,"H":1.0,"xgb":3.1870358,"xd":3.1697173,"fem":3.193,"eq":3.2501769},{"id":"G2_RAPID_30","G":2,"W":"RAPID","th":30,"H":2.0,"xgb":2.0669155,"xd":2.0672655,"fem":2.032,"eq":2.0842524},{"id":"G2_RAPID_30","G":2,"W":"RAPID","th":30,"H":3.0,"xgb":1.5038643,"xd":1.5014751,"fem":1.506,"eq":1.6041114},{"id":"G2_RAPID_30","G":2,"W":"RAPID","th":30,"H":4.0,"xgb":1.1885871,"xd":1.2020329,"fem":1.195,"eq":1.3724167},{"id":"G2_RAPID_40","G":2,"W":"RAPID","th":40,"H":1.0,"xgb":3.107996,"xd":3.0998473,"fem":3.131,"eq":3.1345339},{"id":"G2_RAPID_40","G":2,"W":"RAPID","th":40,"H":2.0,"xgb":2.0077014,"xd":2.0005641,"fem":1.982,"eq":2.0000097},{"id":"G2_RAPID_40","G":2,"W":"RAPID","th":40,"H":3.0,"xgb":1.4433746,"xd":1.4439406,"fem":1.461,"eq":1.5471687},{"id":"G2_RAPID_40","G":2,"W":"RAPID","th":40,"H":4.0,"xgb":1.163806,"xd":1.1629614,"fem":1.158,"eq":1.3337218},{"id":"G2_RAPID_50","G":2,"W":"RAPID","th":50,"H":1.0,"xgb":3.0379467,"xd":3.0215204,"fem":2.976,"eq":2.9913009},{"id":"G2_RAPID_50","G":2,"W":"RAPID","th":50,"H":2.0,"xgb":1.9391961,"xd":1.9388812,"fem":1.926,"eq":1.8994445},{"id":"G2_RAPID_50","G":2,"W":"RAPID","th":50,"H":3.0,"xgb":1.3526993,"xd":1.3978045,"fem":1.415,"eq":1.4812615},{"id":"G2_RAPID_50","G":2,"W":"RAPID","th":50,"H":4.0,"xgb":1.1222894,"xd":1.1259476,"fem":1.119,"eq":1.2898264},{"id":"G2_RAPID_60","G":2,"W":"RAPID","th":60,"H":1.0,"xgb":2.8332844,"xd":2.9315391,"fem":2.772,"eq":2.7990899},{"id":"G2_RAPID_60","G":2,"W":"RAPID","th":60,"H":2.0,"xgb":1.8941908,"xd":1.8719531,"fem":1.818,"eq":1.7714609},{"id":"G2_RAPID_60","G":2,"W":"RAPID","th":60,"H":3.0,"xgb":1.3205878,"xd":1.3193982,"fem":1.339,"eq":1.4007457},{"id":"G2_RAPID_60","G":2,"W":"RAPID","th":60,"H":4.0,"xgb":1.0974191,"xd":1.0966032,"fem":1.053,"eq":1.2375286},{"id":"G2_RAPID_70","G":2,"W":"RAPID","th":70,"H":1.0,"xgb":2.6752532,"xd":2.7841034,"fem":2.774,"eq":2.5216232},{"id":"G2_RAPID_70","G":2,"W":"RAPID","th":70,"H":2.0,"xgb":1.7518146,"xd":1.7836738,"fem":1.737,"eq":1.6017369},{"id":"G2_RAPID_70","G":2,"W":"RAPID","th":70,"H":3.0,"xgb":1.2680676,"xd":1.2545754,"fem":1.248,"eq":1.2999717},{"id":"G2_RAPID_80","G":2,"W":"RAPID","th":80,"H":1.0,"xgb":2.5545053,"xd":2.5890646,"fem":2.549,"eq":2.2326164},{"id":"G2_RAPID_80","G":2,"W":"RAPID","th":80,"H":2.0,"xgb":1.6075336,"xd":1.6459385,"fem":1.629,"eq":1.4448647},{"id":"G2_RAPID_80","G":2,"W":"RAPID","th":80,"H":3.0,"xgb":1.1770788,"xd":1.1813684,"fem":1.161,"eq":1.2130851},{"id":"G2_WET_20","G":2,"W":"WET","th":20,"H":1.0,"xgb":5.1032739,"xd":5.2083821,"fem":5.147,"eq":5.1471799},{"id":"G2_WET_20","G":2,"W":"WET","th":20,"H":2.0,"xgb":3.8346829,"xd":3.9876058,"fem":3.908,"eq":3.7313062},{"id":"G2_WET_20","G":2,"W":"WET","th":20,"H":3.0,"xgb":3.2798622,"xd":3.2267373,"fem":3.156,"eq":2.9578229},{"id":"G2_WET_20","G":2,"W":"WET","th":20,"H":4.0,"xgb":2.6982336,"xd":2.6770644,"fem":2.684,"eq":2.4607191},{"id":"G2_WET_20","G":2,"W":"WET","th":20,"H":5.0,"xgb":2.2614255,"xd":2.3037829,"fem":2.332,"eq":2.1194891},{"id":"G2_WET_20","G":2,"W":"WET","th":20,"H":6.0,"xgb":2.0445876,"xd":2.0589948,"fem":2.058,"eq":1.8765664},{"id":"G2_WET_20","G":2,"W":"WET","th":20,"H":7.0,"xgb":1.8990054,"xd":1.8806622,"fem":1.869,"eq":1.6991848},{"id":"G2_WET_20","G":2,"W":"WET","th":20,"H":8.0,"xgb":1.7096345,"xd":1.7313118,"fem":1.726,"eq":1.5669606},{"id":"G2_WET_20","G":2,"W":"WET","th":20,"H":9.0,"xgb":1.6244938,"xd":1.6183901,"fem":1.627,"eq":1.4665892},{"id":"G2_WET_20","G":2,"W":"WET","th":20,"H":10.0,"xgb":1.5362906,"xd":1.4723411,"fem":1.558,"eq":1.3891255},{"id":"G2_WET_30","G":2,"W":"WET","th":30,"H":1.0,"xgb":4.956141,"xd":4.9654436,"fem":5.018,"eq":5.0376267},{"id":"G2_WET_30","G":2,"W":"WET","th":30,"H":2.0,"xgb":3.6542182,"xd":3.7865472,"fem":3.722,"eq":3.6275389},{"id":"G2_WET_30","G":2,"W":"WET","th":30,"H":3.0,"xgb":3.1270323,"xd":3.0491877,"fem":3.021,"eq":2.8629089},{"id":"G2_WET_30","G":2,"W":"WET","th":30,"H":4.0,"xgb":2.5285573,"xd":2.5282159,"fem":2.569,"eq":2.3762884},{"id":"G2_WET_30","G":2,"W":"WET","th":30,"H":5.0,"xgb":2.1603026,"xd":2.1743102,"fem":2.206,"eq":2.0458272},{"id":"G2_WET_30","G":2,"W":"WET","th":30,"H":6.0,"xgb":1.9285104,"xd":1.9367533,"fem":1.951,"eq":1.8130404},{"id":"G2_WET_30","G":2,"W":"WET","th":30,"H":7.0,"xgb":1.741034,"xd":1.7580371,"fem":1.748,"eq":1.6446933},{"id":"G2_WET_30","G":2,"W":"WET","th":30,"H":8.0,"xgb":1.5742949,"xd":1.6163762,"fem":1.585,"eq":1.5202608},{"id":"G2_WET_30","G":2,"W":"WET","th":30,"H":9.0,"xgb":1.4744843,"xd":1.4737048,"fem":1.453,"eq":1.4264839},{"id":"G2_WET_30","G":2,"W":"WET","th":30,"H":10.0,"xgb":1.3659352,"xd":1.3540988,"fem":1.349,"eq":1.3545484},{"id":"G2_WET_40","G":2,"W":"WET","th":40,"H":1.0,"xgb":4.7928505,"xd":4.7604232,"fem":4.739,"eq":4.9098872},{"id":"G2_WET_40","G":2,"W":"WET","th":40,"H":2.0,"xgb":3.5243282,"xd":3.6386101,"fem":3.617,"eq":3.5073463},{"id":"G2_WET_40","G":2,"W":"WET","th":40,"H":3.0,"xgb":3.055913,"xd":2.9110184,"fem":2.897,"eq":2.7540725},{"id":"G2_WET_40","G":2,"W":"WET","th":40,"H":4.0,"xgb":2.4242444,"xd":2.402889,"fem":2.42,"eq":2.2806074},{"id":"G2_WET_40","G":2,"W":"WET","th":40,"H":5.0,"xgb":2.0827672,"xd":2.0578196,"fem":2.075,"eq":1.963342},{"id":"G2_WET_40","G":2,"W":"WET","th":40,"H":6.0,"xgb":1.8510495,"xd":1.8260562,"fem":1.844,"eq":1.7426915},{"id":"G2_WET_40","G":2,"W":"WET","th":40,"H":7.0,"xgb":1.6941447,"xd":1.6412972,"fem":1.65,"eq":1.5849378},{"id":"G2_WET_40","G":2,"W":"WET","th":40,"H":8.0,"xgb":1.5092157,"xd":1.5011995,"fem":1.499,"eq":1.4694768},{"id":"G2_WET_40","G":2,"W":"WET","th":40,"H":9.0,"xgb":1.3568541,"xd":1.3445188,"fem":1.372,"eq":1.3831767},{"id":"G2_WET_40","G":2,"W":"WET","th":40,"H":10.0,"xgb":1.2560208,"xd":1.2351813,"fem":1.268,"eq":1.3174286},{"id":"G2_WET_50","G":2,"W":"WET","th":50,"H":1.0,"xgb":4.3495703,"xd":4.5468378,"fem":4.35,"eq":4.7493435},{"id":"G2_WET_50","G":2,"W":"WET","th":50,"H":2.0,"xgb":3.2198887,"xd":3.4893193,"fem":3.325,"eq":3.3576623},{"id":"G2_WET_50","G":2,"W":"WET","th":50,"H":3.0,"xgb":2.7705588,"xd":2.7753716,"fem":2.697,"eq":2.6203599},{"id":"G2_WET_50","G":2,"W":"WET","th":50,"H":4.0,"xgb":2.1862426,"xd":2.2734888,"fem":2.285,"eq":2.1648636},{"id":"G2_WET_50","G":2,"W":"WET","th":50,"H":5.0,"xgb":1.9400636,"xd":1.9383209,"fem":1.972,"eq":1.8650738},{"id":"G2_WET_50","G":2,"W":"WET","th":50,"H":6.0,"xgb":1.6965952,"xd":1.7154889,"fem":1.718,"eq":1.6600331},{"id":"G2_WET_50","G":2,"W":"WET","th":50,"H":7.0,"xgb":1.5683131,"xd":1.5398936,"fem":1.538,"eq":1.5155577},{"id":"G2_WET_50","G":2,"W":"WET","th":50,"H":8.0,"xgb":1.3668871,"xd":1.3637905,"fem":1.408,"eq":1.4110979},{"id":"G2_WET_50","G":2,"W":"WET","th":50,"H":9.0,"xgb":1.2091088,"xd":1.2267746,"fem":1.284,"eq":1.3338007},{"id":"G2_WET_50","G":2,"W":"WET","th":50,"H":10.0,"xgb":1.153879,"xd":1.1487685,"fem":1.186,"eq":1.2753921},{"id":"G2_WET_60","G":2,"W":"WET","th":60,"H":1.0,"xgb":3.945349,"xd":4.2658949,"fem":3.937,"eq":4.5290108},{"id":"G2_WET_60","G":2,"W":"WET","th":60,"H":2.0,"xgb":3.0439627,"xd":3.2820587,"fem":3.094,"eq":3.1551203},{"id":"G2_WET_60","G":2,"W":"WET","th":60,"H":3.0,"xgb":2.4861517,"xd":2.6075959,"fem":2.502,"eq":2.4430842},{"id":"G2_WET_60","G":2,"W":"WET","th":60,"H":4.0,"xgb":1.8943875,"xd":2.1372306,"fem":2.117,"eq":2.0148117},{"id":"G2_WET_60","G":2,"W":"WET","th":60,"H":5.0,"xgb":1.6641186,"xd":1.8153043,"fem":1.823,"eq":1.7403589},{"id":"G2_WET_60","G":2,"W":"WET","th":60,"H":6.0,"xgb":1.4724243,"xd":1.6128867,"fem":1.597,"eq":1.557061},{"id":"G2_WET_60","G":2,"W":"WET","th":60,"H":7.0,"xgb":1.2683088,"xd":1.4121169,"fem":1.434,"eq":1.430458},{"id":"G2_WET_60","G":2,"W":"WET","th":60,"H":8.0,"xgb":1.1721368,"xd":1.2440677,"fem":1.291,"eq":1.3403932},{"id":"G2_WET_60","G":2,"W":"WET","th":60,"H":9.0,"xgb":1.0810894,"xd":1.1456321,"fem":1.182,"eq":1.2746088},{"id":"G2_WET_60","G":2,"W":"WET","th":60,"H":10.0,"xgb":1.0450166,"xd":1.0923059,"fem":1.099,"eq":1.2254134},{"id":"G2_WET_70","G":2,"W":"WET","th":70,"H":1.0,"xgb":3.9663913,"xd":3.901221,"fem":3.816,"eq":4.1979781},{"id":"G2_WET_70","G":2,"W":"WET","th":70,"H":2.0,"xgb":2.9973845,"xd":2.9990773,"fem":2.906,"eq":2.8584805},{"id":"G2_WET_70","G":2,"W":"WET","th":70,"H":3.0,"xgb":2.3616211,"xd":2.3807683,"fem":2.325,"eq":2.1923659},{"id":"G2_WET_70","G":2,"W":"WET","th":70,"H":4.0,"xgb":1.9194391,"xd":1.9648559,"fem":1.95,"eq":1.8101254},{"id":"G2_WET_70","G":2,"W":"WET","th":70,"H":5.0,"xgb":1.6738155,"xd":1.6890312,"fem":1.675,"eq":1.5756472},{"id":"G2_WET_70","G":2,"W":"WET","th":70,"H":6.0,"xgb":1.476375,"xd":1.4911344,"fem":1.47,"eq":1.4246663},{"id":"G2_WET_70","G":2,"W":"WET","th":70,"H":7.0,"xgb":1.2817364,"xd":1.2759138,"fem":1.311,"eq":1.3233672},{"id":"G2_WET_70","G":2,"W":"WET","th":70,"H":8.0,"xgb":1.1767712,"xd":1.1621259,"fem":1.188,"eq":1.2529115},{"id":"G2_WET_70","G":2,"W":"WET","th":70,"H":9.0,"xgb":1.0763791,"xd":1.0941564,"fem":1.073,"eq":1.2023409},{"id":"G2_WET_80","G":2,"W":"WET","th":80,"H":1.0,"xgb":3.4664483,"xd":3.4338923,"fem":3.458,"eq":3.8298178},{"id":"G2_WET_80","G":2,"W":"WET","th":80,"H":2.0,"xgb":2.5848737,"xd":2.6333766,"fem":2.627,"eq":2.5423366},{"id":"G2_WET_80","G":2,"W":"WET","th":80,"H":3.0,"xgb":2.0456657,"xd":2.108232,"fem":2.109,"eq":1.9392116},{"id":"G2_WET_80","G":2,"W":"WET","th":80,"H":4.0,"xgb":1.7405089,"xd":1.7747763,"fem":1.776,"eq":1.6137708},{"id":"G2_WET_80","G":2,"W":"WET","th":80,"H":5.0,"xgb":1.5333846,"xd":1.5556886,"fem":1.53,"eq":1.4242003},{"id":"G2_WET_80","G":2,"W":"WET","th":80,"H":6.0,"xgb":1.340941,"xd":1.3409417,"fem":1.337,"eq":1.3068871},{"id":"G2_WET_80","G":2,"W":"WET","th":80,"H":7.0,"xgb":1.1820046,"xd":1.1819524,"fem":1.182,"eq":1.2304622},{"id":"G2_WET_80","G":2,"W":"WET","th":80,"H":8.0,"xgb":1.0734468,"xd":1.1056236,"fem":1.068,"eq":1.1784506},{"id":"G3_DRY_20","G":3,"W":"DRY","th":20,"H":1.0,"xgb":2.3776631,"xd":2.3116708,"fem":2.331,"eq":2.3220593},{"id":"G3_DRY_20","G":3,"W":"DRY","th":20,"H":2.0,"xgb":1.5158427,"xd":1.5063437,"fem":1.523,"eq":1.6168413},{"id":"G3_DRY_20","G":3,"W":"DRY","th":20,"H":3.0,"xgb":1.1386838,"xd":1.1841166,"fem":1.14,"eq":1.3577042},{"id":"G3_DRY_30","G":3,"W":"DRY","th":30,"H":1.0,"xgb":2.3249609,"xd":2.3356214,"fem":2.303,"eq":2.2415805},{"id":"G3_DRY_30","G":3,"W":"DRY","th":30,"H":2.0,"xgb":1.4501342,"xd":1.4830626,"fem":1.483,"eq":1.5670878},{"id":"G3_DRY_30","G":3,"W":"DRY","th":30,"H":3.0,"xgb":1.1071758,"xd":1.1817876,"fem":1.105,"eq":1.3254851},{"id":"G3_DRY_40","G":3,"W":"DRY","th":40,"H":1.0,"xgb":2.2791405,"xd":2.3217621,"fem":2.261,"eq":2.1507789},{"id":"G3_DRY_40","G":3,"W":"DRY","th":40,"H":2.0,"xgb":1.4181061,"xd":1.4549137,"fem":1.445,"eq":1.5128055},{"id":"G3_DRY_40","G":3,"W":"DRY","th":40,"H":3.0,"xgb":1.0767195,"xd":1.1740874,"fem":1.069,"eq":1.2909826},{"id":"G3_DRY_50","G":3,"W":"DRY","th":50,"H":1.0,"xgb":2.259593,"xd":2.2726555,"fem":2.221,"eq":2.0415595},{"id":"G3_DRY_50","G":3,"W":"DRY","th":50,"H":2.0,"xgb":1.3844708,"xd":1.4082601,"fem":1.401,"eq":1.450163},{"id":"G3_DRY_50","G":3,"W":"DRY","th":50,"H":3.0,"xgb":1.0585361,"xd":1.1574626,"fem":1.034,"eq":1.2520211},{"id":"G3_DRY_60","G":3,"W":"DRY","th":60,"H":1.0,"xgb":2.1457536,"xd":2.1336973,"fem":2.147,"eq":1.9010944},{"id":"G3_DRY_60","G":3,"W":"DRY","th":60,"H":2.0,"xgb":1.3468734,"xd":1.333388,"fem":1.356,"eq":1.3739228},{"id":"G3_DRY_70","G":3,"W":"DRY","th":70,"H":1.0,"xgb":1.9401059,"xd":1.9013772,"fem":1.825,"eq":1.7118416},{"id":"G3_DRY_70","G":3,"W":"DRY","th":70,"H":2.0,"xgb":1.241348,"xd":1.2388557,"fem":1.237,"eq":1.2789792},{"id":"G3_DRY_80","G":3,"W":"DRY","th":80,"H":1.0,"xgb":1.6198642,"xd":1.6095779,"fem":1.635,"eq":1.533279},{"id":"G3_DRY_80","G":3,"W":"DRY","th":80,"H":2.0,"xgb":1.0864582,"xd":1.1450177,"fem":1.082,"eq":1.1975823},{"id":"G3_RAPID_20","G":3,"W":"RAPID","th":20,"H":1.0,"xgb":2.3916149,"xd":2.3243613,"fem":2.331,"eq":2.3220593},{"id":"G3_RAPID_20","G":3,"W":"RAPID","th":20,"H":2.0,"xgb":1.5145235,"xd":1.537111,"fem":1.521,"eq":1.6168413},{"id":"G3_RAPID_20","G":3,"W":"RAPID","th":20,"H":3.0,"xgb":1.1188389,"xd":1.2564949,"fem":1.137,"eq":1.3577042},{"id":"G3_RAPID_30","G":3,"W":"RAPID","th":30,"H":1.0,"xgb":2.3203554,"xd":2.3229532,"fem":2.295,"eq":2.2415805},{"id":"G3_RAPID_30","G":3,"W":"RAPID","th":30,"H":2.0,"xgb":1.4460961,"xd":1.4983345,"fem":1.479,"eq":1.5670878},{"id":"G3_RAPID_30","G":3,"W":"RAPID","th":30,"H":3.0,"xgb":1.0855924,"xd":1.2348055,"fem":1.106,"eq":1.3254851},{"id":"G3_RAPID_40","G":3,"W":"RAPID","th":40,"H":1.0,"xgb":2.2324288,"xd":2.306715,"fem":2.258,"eq":2.1507789},{"id":"G3_RAPID_40","G":3,"W":"RAPID","th":40,"H":2.0,"xgb":1.4047936,"xd":1.4629673,"fem":1.446,"eq":1.5128055},{"id":"G3_RAPID_40","G":3,"W":"RAPID","th":40,"H":3.0,"xgb":1.0590528,"xd":1.2096395,"fem":1.076,"eq":1.2909826},{"id":"G3_RAPID_50","G":3,"W":"RAPID","th":50,"H":1.0,"xgb":2.1667895,"xd":2.2384572,"fem":2.215,"eq":2.0415595},{"id":"G3_RAPID_50","G":3,"W":"RAPID","th":50,"H":2.0,"xgb":1.3569889,"xd":1.4116813,"fem":1.401,"eq":1.450163},{"id":"G3_RAPID_50","G":3,"W":"RAPID","th":50,"H":3.0,"xgb":1.0408723,"xd":1.1785856,"fem":1.033,"eq":1.2520211},{"id":"G3_RAPID_60","G":3,"W":"RAPID","th":60,"H":1.0,"xgb":2.1126399,"xd":2.1039264,"fem":2.118,"eq":1.9010944},{"id":"G3_RAPID_60","G":3,"W":"RAPID","th":60,"H":2.0,"xgb":1.3466473,"xd":1.3387438,"fem":1.343,"eq":1.3739228},{"id":"G3_RAPID_70","G":3,"W":"RAPID","th":70,"H":1.0,"xgb":1.869092,"xd":1.8947487,"fem":1.826,"eq":1.7118416},{"id":"G3_RAPID_70","G":3,"W":"RAPID","th":70,"H":2.0,"xgb":1.2319542,"xd":1.2552397,"fem":1.233,"eq":1.2789792},{"id":"G3_RAPID_80","G":3,"W":"RAPID","th":80,"H":1.0,"xgb":1.5889966,"xd":1.6418208,"fem":1.628,"eq":1.533279},{"id":"G3_RAPID_80","G":3,"W":"RAPID","th":80,"H":2.0,"xgb":1.0845228,"xd":1.1608067,"fem":1.079,"eq":1.1975823},{"id":"G3_WET_20","G":3,"W":"WET","th":20,"H":1.0,"xgb":3.7225058,"xd":3.8675258,"fem":3.796,"eq":3.9469525},{"id":"G3_WET_20","G":3,"W":"WET","th":20,"H":2.0,"xgb":3.0553279,"xd":2.9864326,"fem":2.97,"eq":2.8864966},{"id":"G3_WET_20","G":3,"W":"WET","th":20,"H":3.0,"xgb":2.4634972,"xd":2.4790246,"fem":2.482,"eq":2.3405473},{"id":"G3_WET_20","G":3,"W":"WET","th":20,"H":4.0,"xgb":2.1396403,"xd":2.1309705,"fem":2.127,"eq":2.0062267},{"id":"G3_WET_20","G":3,"W":"WET","th":20,"H":5.0,"xgb":1.8513054,"xd":1.8949944,"fem":1.879,"eq":1.7840363},{"id":"G3_WET_20","G":3,"W":"WET","th":20,"H":6.0,"xgb":1.6890689,"xd":1.7167513,"fem":1.69,"eq":1.6284859},{"id":"G3_WET_20","G":3,"W":"WET","th":20,"H":7.0,"xgb":1.5393027,"xd":1.5766554,"fem":1.531,"eq":1.5153464},{"id":"G3_WET_20","G":3,"W":"WET","th":20,"H":8.0,"xgb":1.4027712,"xd":1.3988765,"fem":1.393,"eq":1.4305251},{"id":"G3_WET_20","G":3,"W":"WET","th":20,"H":9.0,"xgb":1.2877095,"xd":1.2714251,"fem":1.293,"eq":1.3653262},{"id":"G3_WET_20","G":3,"W":"WET","th":20,"H":10.0,"xgb":1.1917453,"xd":1.1926517,"fem":1.187,"eq":1.3141416},{"id":"G3_WET_30","G":3,"W":"WET","th":30,"H":1.0,"xgb":3.7321,"xd":3.7231023,"fem":3.757,"eq":3.8417062},{"id":"G3_WET_30","G":3,"W":"WET","th":30,"H":2.0,"xgb":2.9038346,"xd":2.8683128,"fem":2.864,"eq":2.7927917},{"id":"G3_WET_30","G":3,"W":"WET","th":30,"H":3.0,"xgb":2.3056846,"xd":2.354414,"fem":2.355,"eq":2.2595103},{"id":"G3_WET_30","G":3,"W":"WET","th":30,"H":4.0,"xgb":2.021745,"xd":2.0033586,"fem":2.025,"eq":1.9369981},{"id":"G3_WET_30","G":3,"W":"WET","th":30,"H":5.0,"xgb":1.7632927,"xd":1.7624881,"fem":1.776,"eq":1.7250331},{"id":"G3_WET_30","G":3,"W":"WET","th":30,"H":6.0,"xgb":1.6161565,"xd":1.5847306,"fem":1.579,"eq":1.5780397},{"id":"G3_WET_30","G":3,"W":"WET","th":30,"H":7.0,"xgb":1.4400229,"xd":1.4401801,"fem":1.434,"eq":1.4719604},{"id":"G3_WET_30","G":3,"W":"WET","th":30,"H":8.0,"xgb":1.3311926,"xd":1.2796112,"fem":1.306,"eq":1.3929441},{"id":"G3_WET_30","G":3,"W":"WET","th":30,"H":9.0,"xgb":1.2073859,"xd":1.1777118,"fem":1.205,"eq":1.3325288},{"id":"G3_WET_30","G":3,"W":"WET","th":30,"H":10.0,"xgb":1.1167393,"xd":1.1118705,"fem":1.126,"eq":1.2853069},{"id":"G3_WET_40","G":3,"W":"WET","th":40,"H":1.0,"xgb":3.7084095,"xd":3.6120076,"fem":3.654,"eq":3.7195942},{"id":"G3_WET_40","G":3,"W":"WET","th":40,"H":2.0,"xgb":2.846786,"xd":2.7653956,"fem":2.734,"eq":2.6854887},{"id":"G3_WET_40","G":3,"W":"WET","th":40,"H":3.0,"xgb":2.2159662,"xd":2.2516179,"fem":2.25,"eq":2.1680221},{"id":"G3_WET_40","G":3,"W":"WET","th":40,"H":4.0,"xgb":1.9324076,"xd":1.9034786,"fem":1.89,"eq":1.8598545},{"id":"G3_WET_40","G":3,"W":"WET","th":40,"H":5.0,"xgb":1.650254,"xd":1.6600301,"fem":1.661,"eq":1.6600136},{"id":"G3_WET_40","G":3,"W":"WET","th":40,"H":6.0,"xgb":1.4809037,"xd":1.4829586,"fem":1.494,"eq":1.522961},{"id":"G3_WET_40","G":3,"W":"WET","th":40,"H":7.0,"xgb":1.3214874,"xd":1.3326886,"fem":1.348,"eq":1.4249467},{"id":"G3_WET_40","G":3,"W":"WET","th":40,"H":8.0,"xgb":1.2194741,"xd":1.1892231,"fem":1.225,"eq":1.3524712},{"id":"G3_WET_40","G":3,"W":"WET","th":40,"H":9.0,"xgb":1.1048189,"xd":1.106742,"fem":1.12,"eq":1.2973856},{"id":"G3_WET_40","G":3,"W":"WET","th":40,"H":10.0,"xgb":1.0358655,"xd":1.0645647,"fem":1.032,"eq":1.2545384},{"id":"G3_WET_50","G":3,"W":"WET","th":50,"H":1.0,"xgb":3.4678998,"xd":3.4796174,"fem":3.378,"eq":3.5671671},{"id":"G3_WET_50","G":3,"W":"WET","th":50,"H":2.0,"xgb":2.6457314,"xd":2.6445956,"fem":2.609,"eq":2.5538994},{"id":"G3_WET_50","G":3,"W":"WET","th":50,"H":3.0,"xgb":2.0313182,"xd":2.1344051,"fem":2.131,"eq":2.0578892},{"id":"G3_WET_50","G":3,"W":"WET","th":50,"H":4.0,"xgb":1.802784,"xd":1.7953825,"fem":1.788,"eq":1.76851},{"id":"G3_WET_50","G":3,"W":"WET","th":50,"H":5.0,"xgb":1.5740705,"xd":1.5577803,"fem":1.553,"eq":1.5840749},{"id":"G3_WET_50","G":3,"W":"WET","th":50,"H":6.0,"xgb":1.3813035,"xd":1.3858236,"fem":1.391,"eq":1.4593431},{"id":"G3_WET_50","G":3,"W":"WET","th":50,"H":7.0,"xgb":1.2263731,"xd":1.2377295,"fem":1.252,"eq":1.3711264},{"id":"G3_WET_50","G":3,"W":"WET","th":50,"H":8.0,"xgb":1.1362121,"xd":1.1209891,"fem":1.135,"eq":1.3064696},{"id":"G3_WET_50","G":3,"W":"WET","th":50,"H":9.0,"xgb":1.0508019,"xd":1.0653373,"fem":1.047,"eq":1.257673},{"id":"G3_WET_60","G":3,"W":"WET","th":60,"H":1.0,"xgb":3.2608764,"xd":3.2898297,"fem":3.156,"eq":3.3601793},{"id":"G3_WET_60","G":3,"W":"WET","th":60,"H":2.0,"xgb":2.5086143,"xd":2.4726667,"fem":2.439,"eq":2.3799054},{"id":"G3_WET_60","G":3,"W":"WET","th":60,"H":3.0,"xgb":1.9754798,"xd":1.9925289,"fem":1.971,"eq":1.9160911},{"id":"G3_WET_60","G":3,"W":"WET","th":60,"H":4.0,"xgb":1.6986482,"xd":1.6774988,"fem":1.671,"eq":1.6535395},{"id":"G3_WET_60","G":3,"W":"WET","th":60,"H":5.0,"xgb":1.4336621,"xd":1.4540796,"fem":1.445,"eq":1.4902171},{"id":"G3_WET_60","G":3,"W":"WET","th":60,"H":6.0,"xgb":1.2256871,"xd":1.2812337,"fem":1.268,"eq":1.3818288},{"id":"G3_WET_60","G":3,"W":"WET","th":60,"H":7.0,"xgb":1.0838927,"xd":1.1568943,"fem":1.162,"eq":1.3062805},{"id":"G3_WET_60","G":3,"W":"WET","th":60,"H":8.0,"xgb":1.0512544,"xd":1.0770802,"fem":1.061,"eq":1.2515324},{"id":"G3_WET_70","G":3,"W":"WET","th":70,"H":1.0,"xgb":2.9551549,"xd":2.9879427,"fem":3.006,"eq":3.0551117},{"id":"G3_WET_70","G":3,"W":"WET","th":70,"H":2.0,"xgb":2.1729069,"xd":2.2380838,"fem":2.237,"eq":2.1349174},{"id":"G3_WET_70","G":3,"W":"WET","th":70,"H":3.0,"xgb":1.7616189,"xd":1.8141798,"fem":1.798,"eq":1.7247153},{"id":"G3_WET_70","G":3,"W":"WET","th":70,"H":4.0,"xgb":1.5525558,"xd":1.5402963,"fem":1.536,"eq":1.5035275},{"id":"G3_WET_70","G":3,"W":"WET","th":70,"H":5.0,"xgb":1.3337353,"xd":1.3441116,"fem":1.339,"eq":1.3708627},{"id":"G3_WET_70","G":3,"W":"WET","th":70,"H":6.0,"xgb":1.1721786,"xd":1.1902668,"fem":1.173,"eq":1.2851539},{"id":"G3_WET_70","G":3,"W":"WET","th":70,"H":7.0,"xgb":1.0522846,"xd":1.1037892,"fem":1.045,"eq":1.2265919},{"id":"G3_WET_80","G":3,"W":"WET","th":80,"H":1.0,"xgb":2.2594457,"xd":2.545913,"fem":2.829,"eq":2.7266324},{"id":"G3_WET_80","G":3,"W":"WET","th":80,"H":2.0,"xgb":1.4440058,"xd":1.9330025,"fem":1.856,"eq":1.8891586},{"id":"G3_WET_80","G":3,"W":"WET","th":80,"H":3.0,"xgb":1.5057311,"xd":1.6075659,"fem":1.534,"eq":1.5437401},{"id":"G3_WET_80","G":3,"W":"WET","th":80,"H":4.0,"xgb":1.4094534,"xd":1.3872317,"fem":1.333,"eq":1.3676705},{"id":"G3_WET_80","G":3,"W":"WET","th":80,"H":5.0,"xgb":1.2481878,"xd":1.2289265,"fem":1.158,"eq":1.2660583},{"id":"G3_WET_80","G":3,"W":"WET","th":80,"H":6.0,"xgb":1.1266299,"xd":1.1274313,"fem":1.043,"eq":1.2021334}],"accuracy":{"Hcr":{"eq":{"N":47,"R2":0.9099151108889029,"RMSE":0.5934504083893529,"MAE":0.45736297021276595,"MAPE":0.11948342338175097,"IntervalCoverage":0.6507936507936508,"Agreement100mape":0.880516576618249},"xgb":{"N":47,"R2":0.9875662547684866,"RMSE":0.22047504559656117,"MAE":0.13107804893617017,"MAPE":0.024116572019480996,"IntervalCoverage":0.7936507936507936,"Agreement100mape":0.975883427980519},"xd":{"N":47,"R2":0.9857437690890353,"RMSE":0.2360808822305866,"MAE":0.1689605638297872,"MAPE":0.037420016635374656,"IntervalCoverage":0.9523809523809523,"Agreement100mape":0.9625799833646254}},"FS":{"eq":{"N":372,"R2":0.9820176557854767,"RMSE":0.13975083564076554,"MAE":0.10451227795698925,"MAPE":0.05968341801962804,"Within10":0.803763440860215,"Agreement100mape":0.9403165819803719},"xgb":{"N":372,"R2":0.9945113223489584,"RMSE":0.07720850138436376,"MAE":0.04395108924731182,"MAPE":0.020995257117695405,"Within10":0.978494623655914,"Agreement100mape":0.9790047428823045},"xd":{"N":372,"R2":0.9955612786022263,"RMSE":0.06943208444249618,"MAE":0.04400089919354839,"MAPE":0.024149358930484924,"Within10":0.9489247311827957,"Agreement100mape":0.975850641069515}}}}</script>
+<script>
+const D=JSON.parse(document.getElementById('DATA').textContent);
+const GRID=[20,30,40,50,60,70,80], WATERS=['DRY','RAPID','WET'];
+const S={G:1,W:'DRY',th:40,H:4};
+
+/* ==========================================================================
+   EASY EDIT — CROSS-SECTION LAYOUT
+   Change only the numbers in this block.
+
+   For X values:  bigger = move RIGHT, smaller = move LEFT
+   For Y values:  bigger = move DOWN,  smaller = move UP
+   For angleAlongSlope: 0 = top/crest, 1 = bottom/toe
+   ========================================================================== */
+const CROSS_SECTION_LAYOUT={
+  // --- ANGLE θ: edit these first ---
+  angleAlongSlope:0.80, // 0.00 = crest, 1.00 = toe
+  angleMoveX:0,         // + right, - left (pixels)
+  angleMoveY:-10,         // + down,  - up   (pixels)
+  angleArcScale:1.50,   // larger = larger angle arc
+
+  // --- Main drawing geometry ---
+  canvasWidth:900,
+  canvasHeight:470,
+  groundY:64,
+  soilBottomY:444,
+  crestX:245,
+  soilRightX:705,
+
+  // --- Labels / dimensions ---
+  originalGroundX:18,
+  originalGroundY:34,
+  depthHX:145,
+  hcrLabelX:724,
+  hcrDepthDimensionX:828,
+
+  // --- Slope length dimension S ---
+  slopeDimensionOffset:39,
+  slopeTextOffset:28
+};
+const SOIL_CLASSIFIER={
+  mean:{gamma:17.066667,void:1.900333,thick:15.666667},
+  sd:{gamma:2.13124898,void:0.46761832,thick:4.92160769},
+  coef:{gamma:-0.56507713,void:0.57947262,thick:0.58728129},
+  rawShift:2.07394105,rawScale:4.15172029,
+  t12:0.249307,t23:0.749307
+};
+function classifySoilGroup(gamma,voidRatio,thick){
+  if(![gamma,voidRatio,thick].every(Number.isFinite))return null;
+  const c=SOIL_CLASSIFIER;
+  const raw=c.coef.gamma*(gamma-c.mean.gamma)/c.sd.gamma + c.coef.void*(voidRatio-c.mean.void)/c.sd.void + c.coef.thick*(thick-c.mean.thick)/c.sd.thick;
+  const score=(raw+c.rawShift)/c.rawScale;
+  const G=score<c.t12?1:(score<c.t23?2:3);
+  const ref=G===1?'ABC profile':G===2?'D profile':'EF profile';
+  return {raw,score,G,ref};
+}
+let SOIL_MODE='manual', SUGGESTED_G=null;
+function setSoilMode(mode){
+  SOIL_MODE=mode==='auto'?'auto':'manual';
+  const auto=SOIL_MODE==='auto';
+  document.getElementById('autoPanel').hidden=!auto;
+  document.getElementById('manualHint').textContent=auto
+    ? 'Enter the soil profile below. The classifier will suggest G1/G2/G3, but it will not change the active group until you confirm.'
+    : 'Choose G1, G2, or G3 directly. Use the optional classifier only when you want the soil profile to suggest a group.';
+  document.getElementById('gModeLabel').textContent=auto?'(auto suggestion · confirm to use)':'(manual)';
+  if(auto) updateSoilSuggestion();
+  sync();
+}
+function updateSoilSuggestion(){
+  if(SOIL_MODE!=='auto')return;
+  const gamma=Number(document.getElementById('soilGamma').value),voidRatio=Number(document.getElementById('soilVoid').value),thick=Number(document.getElementById('soilThick').value);
+  const r=classifySoilGroup(gamma,voidRatio,thick);
+  const btn=document.getElementById('useSuggestedG');
+  if(!r){
+    SUGGESTED_G=null;
+    document.getElementById('soilScore').textContent='–';
+    document.getElementById('soilGroupOut').textContent='–';
+    document.getElementById('soilRef').textContent='Enter valid soil parameters';
+    btn.disabled=true;btn.textContent='Use suggested group';
+    return;
+  }
+  SUGGESTED_G=r.G;
+  document.getElementById('soilScore').textContent=r.score.toFixed(3);
+  document.getElementById('soilGroupOut').textContent='G'+r.G;
+  document.getElementById('soilRef').textContent='Mapped reference: '+r.ref;
+  btn.disabled=false;btn.textContent='Use G'+r.G;
+}
+function applySuggestedGroup(){
+  if(!SUGGESTED_G)return;
+  S.G=SUGGESTED_G;
+  sync();
+  const btn=document.getElementById('useSuggestedG');
+  btn.textContent='G'+S.G+' selected';
+}
+const key=(g,w,th)=>`${g}|${w}|${th}`;
+const CURVE={},FSC={};
+D.curves.forEach(c=>CURVE[key(c.G,c.W,c.th)]=c);
+D.fs.forEach(r=>(FSC[key(r.G,r.W,r.th)]??=[]).push(r));
+Object.values(FSC).forEach(a=>a.sort((x,y)=>x.H-y.H));
+const fmt=(x,d=2)=>(x==null||!Number.isFinite(+x))?'–':Number(x).toFixed(d);
+
+function bracket(th){
+  if(th<=20)return[20,20,0]; if(th>=80)return[80,80,0];
+  const lo=Math.floor(th/10)*10,hi=lo+10;return[lo,hi,(th-lo)/(hi-lo)];
+}
+function methodAHcr(G,w,th){
+  const c=[15.32989969,-1.72629320,-0.00058397,-9.42047249,2.99666733,0.00860941];
+  const W={WET:0,DRY:1,RAPID:2}[w],A=+th;
+  return c[0]+c[1]*G+c[2]*A*A+c[3]*W+c[4]*W*W+c[5]*A*W;
+}
+function softplus(z){if(z>40)return z;if(z<-40)return Math.exp(z);return Math.log1p(Math.exp(z))}
+function softplus7FS(G,w,th,H){
+  const b=[6.808680,-2.971959,-0.571198,-1.238220,-1.881010,0.427553,0.052114];
+  const T=Math.tan(th*Math.PI/180),W=w==='WET'?0:1,lnH=Math.log(H);
+  const z=b[0]+b[1]*lnH+b[2]*T+b[3]*G+b[4]*W+b[5]*lnH*G+b[6]*T*T;
+  return 1+softplus(z);
+}
+function hcrAI(g,w,th,model){
+  const [lo,hi,f]=bracket(th),a=CURVE[key(g,w,lo)],b=CURVE[key(g,w,hi)];
+  if(!a||!b||a[model]==null||b[model]==null)return null;
+  const exact=GRID.includes(th);
+  return {v:exact?CURVE[key(g,w,th)][model]:a[model]+(b[model]-a[model])*f,exact,lo,hi};
+}
+function fsOnCurve(g,w,th,H,model){
+  const a=FSC[key(g,w,th)]||[];
+  if(!a.length)return null;
+  if(H<a[0].H||H>a[a.length-1].H)return {v:null,out:true,lo:a[0].H,hi:a[a.length-1].H};
+  for(let i=0;i<a.length-1;i++){
+    if(H>=a[i].H&&H<=a[i+1].H){
+      const f=(H-a[i].H)/(a[i+1].H-a[i].H||1);
+      return {v:a[i][model]+(a[i+1][model]-a[i][model])*f,out:false,lo:a[0].H,hi:a[a.length-1].H};
+    }
+  }
+  return {v:a[a.length-1][model],out:false,lo:a[0].H,hi:a[a.length-1].H};
+}
+function fsAI(g,w,th,H,model){
+  const [lo,hi,f]=bracket(th);
+  if(GRID.includes(th)){
+    const q=fsOnCurve(g,w,th,H,model);
+    return q?{...q,exact:true,tlo:lo,thi:hi}:null;
+  }
+  const a=fsOnCurve(g,w,lo,H,model),b=fsOnCurve(g,w,hi,H,model);
+  if(!a||!b)return null;
+  const hLo=Math.max(a.lo,b.lo),hHi=Math.min(a.hi,b.hi);
+  if(a.v==null||b.v==null)return {v:null,out:true,exact:false,tlo:lo,thi:hi,lo:hLo,hi:hHi};
+  return {v:a.v+(b.v-a.v)*f,out:false,exact:false,tlo:lo,thi:hi,lo:hLo,hi:hHi};
+}
+function fsSeriesAI(g,w,th,model){
+  const [lo,hi,f]=bracket(th);
+  if(GRID.includes(th))return (FSC[key(g,w,th)]||[]).map(r=>({H:r.H,v:r[model]}));
+  const A=FSC[key(g,w,lo)]||[],B=FSC[key(g,w,hi)]||[];
+  if(!A.length||!B.length)return[];
+  const maxH=Math.min(A[A.length-1].H,B[B.length-1].H),out=[];
+  for(let H=1;H<=maxH;H++){
+    const a=fsOnCurve(g,w,lo,H,model),b=fsOnCurve(g,w,hi,H,model);
+    if(a&&b&&a.v!=null&&b.v!=null)out.push({H,v:a.v+(b.v-a.v)*f});
+  }
+  return out;
+}
+function setStatus(id,hcr){
+  const el=document.getElementById(id);
+  el.className='status';
+  if(hcr==null){el.textContent='N/A';el.classList.add('na');return null}
+  const safe=S.H<hcr;
+  el.textContent=safe?'BELOW Hcr':'AT / ABOVE Hcr';
+  el.classList.add(safe?'safe':'unsafe');
+  return safe;
+}
+function renderCards(){
+  const eqH=methodAHcr(S.G,S.W,S.th),eqF=softplus7FS(S.G,S.W,S.th,S.H);
+  const xh=hcrAI(S.G,S.W,S.th,'xgb'),dh=hcrAI(S.G,S.W,S.th,'xd');
+  const xf=fsAI(S.G,S.W,S.th,S.H,'xgb'),df=fsAI(S.G,S.W,S.th,S.H,'xd');
+  document.getElementById('eqHcr').textContent=fmt(eqH,2);document.getElementById('eqFS').textContent=fmt(eqF,3);
+  document.getElementById('xgbHcr').textContent=fmt(xh?.v,2);document.getElementById('xdHcr').textContent=fmt(dh?.v,2);
+  document.getElementById('xgbFS').textContent=fmt(xf?.v,3);document.getElementById('xdFS').textContent=fmt(df?.v,3);
+  document.getElementById('xgbHcrSrc').textContent=xh?(xh.exact?'stored value':`interp. θ ${xh.lo}–${xh.hi}°`):'no data';
+  document.getElementById('xdHcrSrc').textContent=dh?(dh.exact?'stored value':`interp. θ ${dh.lo}–${dh.hi}°`):'no data';
+  const fsSrc=q=>!q?'no data':q.v==null?`outside stored H range (${fmt(q.lo,0)}–${fmt(q.hi,0)} m)`:(q.exact?'H interpolation':'θ + H interpolation');
+  document.getElementById('xgbFSSrc').textContent=fsSrc(xf);document.getElementById('xdFSSrc').textContent=fsSrc(df);
+  const st=[setStatus('eqStatus',eqH),setStatus('xgbStatus',xh?.v),setStatus('xdStatus',dh?.v)].filter(x=>x!==null);
+  const hs=[eqH,xh?.v,dh?.v].filter(Number.isFinite), fsvals=[eqF,xf?.v,df?.v].filter(Number.isFinite);
+  document.getElementById('hcrSpread').textContent=hs.length>1?fmt(Math.max(...hs)-Math.min(...hs),2)+' m':'–';
+  document.getElementById('fsSpread').textContent=fsvals.length>1?fmt(Math.max(...fsvals)-Math.min(...fsvals),3):'–';
+  document.getElementById('agree').textContent=st.length===3&&st.every(x=>x===st[0])?'YES':'NO';
+  document.getElementById('caseTitle').textContent=`G${S.G} · ${S.W} · θ=${S.th}° · H=${fmt(S.H,1)} m`;
+  document.getElementById('caseNote').textContent=GRID.includes(S.th)?'AI Hcr at stored θ grid':'AI Hcr interpolated between stored θ grid points';
+}
+function drawSection(){
+  /* Publication-style dimensioned cross-section. All dimensions update from the live GUI inputs. */
+  const C=CROSS_SECTION_LAYOUT;
+  const W=C.canvasWidth,Hpx=C.canvasHeight;
+  const y0=C.groundY,soilBottom=C.soilBottomY,xCrest=C.crestX,xSoilRight=C.soilRightX,xLabel=C.hcrLabelX,xDim=C.hcrDepthDimensionX;
+  const eq=methodAHcr(S.G,S.W,S.th);
+  const xh=hcrAI(S.G,S.W,S.th,'xgb')?.v;
+  const dh=hcrAI(S.G,S.W,S.th,'xd')?.v;
+  const hcrs=[
+    {v:dh,n:'xDeepFM',c:'#6A35B5',d:'9 6'},
+    {v:xh,n:'XGBoost',c:'#16211E',d:'8 6'},
+    {v:eq,n:'Eq.',c:'#0B6769',d:'10 6'}
+  ].filter(q=>Number.isFinite(q.v));
+  const vals=hcrs.map(q=>q.v);
+  const maxHcr=vals.length?Math.max(...vals):S.H;
+  const minHcr=vals.length?Math.min(...vals):S.H;
+  const depthMax=Math.max(S.H,maxHcr,4)+0.8;
+  const thRad=S.th*Math.PI/180;
+  const runM=S.H/Math.tan(thRad);
+  const slopeM=S.H/Math.sin(thRad);
+  const availY=soilBottom-y0-30;
+  const availX=xSoilRight-xCrest-115;
+  const scale=Math.min(availY/depthMax,availX/Math.max(runM,1.2),48);
+  const yFloor=y0+S.H*scale;
+  const xToe=xCrest+runM*scale;
+  const hatch={1:6,2:4.2,3:2.8}[S.G];
+  const wcol={DRY:'#B4762A',RAPID:'#6B7FA3',WET:'#1F6E8C'}[S.W];
+  const soil=`0,${y0} ${xCrest},${y0} ${xToe},${yFloor} ${xSoilRight},${yFloor} ${xSoilRight},${soilBottom} 0,${soilBottom}`;
+  const fmtRange=(a,b)=>Math.abs(a-b)<0.005?fmt(a,2):`${fmt(a,2)}–${fmt(b,2)}`;
+
+  let g=`<defs>
+    <pattern id="hh" width="${hatch}" height="${hatch}" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+      <line x1="0" y1="0" x2="0" y2="${hatch}" stroke="#C9CEC9" stroke-width="1"/>
+    </pattern>
+    <clipPath id="clip"><polygon points="${soil}"/></clipPath>
+    <marker id="dimArrow" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto-start-reverse" markerUnits="strokeWidth">
+      <path d="M0,0 L8,4 L0,8 z" fill="#16211E"/>
+    </marker>
+  </defs>`;
+  g+=`<rect width="${W}" height="${Hpx}" fill="#fff"/>`;
+  g+=`<polygon points="${soil}" fill="#F6F3EC"/><polygon points="${soil}" fill="url(#hh)"/>`;
+  g+=`<polyline points="0,${y0} ${xCrest},${y0} ${xToe},${yFloor} ${xSoilRight},${yFloor}" fill="none" stroke="#16211E" stroke-width="2.5"/>`;
+  g+=`<line x1="0" y1="${soilBottom}" x2="${xSoilRight}" y2="${soilBottom}" stroke="#16211E" stroke-width="2"/>`;
+
+  /* Water condition remains visible, but deliberately secondary to the dimensions. */
+  if(S.W==='WET'){
+    const yw=y0+0.65*scale;
+    g+=`<g clip-path="url(#clip)"><rect x="0" y="${yw}" width="${xSoilRight}" height="${soilBottom-yw}" fill="${wcol}" opacity=".075"/></g>`;
+    g+=`<line x1="0" y1="${yw}" x2="${xCrest}" y2="${yw}" stroke="${wcol}" stroke-width="1.2"/>`;
+    g+=`<path d="M${xCrest},${yw} Q${(xCrest+xToe)/2},${(yw+yFloor)/2} ${xToe},${yFloor}" fill="none" stroke="${wcol}" stroke-width="1.1" stroke-dasharray="5 4"/>`;
+    g+=`<text x="12" y="${yw-7}" font-family="IBM Plex Mono" font-size="9.5" fill="${wcol}">water table</text>`;
+  }else if(S.W==='RAPID'){
+    const yPre=y0+0.65*scale;
+    const yPost=Math.min(yFloor-4,y0+Math.max(S.H*.75,1)*scale);
+    g+=`<line x1="0" y1="${yPre}" x2="${xCrest}" y2="${yPre}" stroke="${wcol}" stroke-width="1.05" stroke-dasharray="5 4" opacity=".75"/>`;
+    g+=`<line x1="0" y1="${yPost}" x2="${xCrest}" y2="${yPost}" stroke="${wcol}" stroke-width="1.25"/>`;
+    g+=`<text x="12" y="${yPost-7}" font-family="IBM Plex Mono" font-size="9.5" fill="${wcol}">post-drawdown water</text>`;
+  }
+
+  /* Original-ground label. */
+  g+=`<text x="${C.originalGroundX}" y="${C.originalGroundY}" font-family="IBM Plex Sans" font-size="12" fill="#16211E">original ground</text>`;
+  g+=`<line x1="80" y1="39" x2="102" y2="${y0-3}" stroke="#16211E" stroke-width="1" marker-end="url(#dimArrow)"/>`;
+
+  /* Vertical excavation depth H. */
+  const xH=C.depthHX;
+  g+=`<line x1="${xH}" y1="${y0+3}" x2="${xH}" y2="${yFloor-3}" stroke="#16211E" stroke-width="1.1" marker-start="url(#dimArrow)" marker-end="url(#dimArrow)"/>`;
+  g+=`<line x1="${xH-10}" y1="${y0}" x2="${xH+10}" y2="${y0}" stroke="#16211E" stroke-width="1"/>`;
+  g+=`<line x1="${xH-10}" y1="${yFloor}" x2="${xH+10}" y2="${yFloor}" stroke="#16211E" stroke-width="1"/>`;
+  g+=`<rect x="${xH-39}" y="${(y0+yFloor)/2-13}" width="78" height="25" rx="3" fill="#F6F3EC" opacity=".95"/>`;
+  g+=`<text x="${xH}" y="${(y0+yFloor)/2+4}" text-anchor="middle" font-family="IBM Plex Sans" font-size="12.5" font-style="italic" fill="#16211E">H = ${fmt(S.H,1)} m</text>`;
+
+  /* Slope-face dimension S = H/sin(theta), offset into the open-cut side. */
+  const dx=xToe-xCrest,dy=yFloor-y0,len=Math.max(Math.hypot(dx,dy),1);
+  const nx=dy/len,ny=-dx/len,off=C.slopeDimensionOffset;
+  const s1x=xCrest+nx*off,s1y=y0+ny*off,s2x=xToe+nx*off,s2y=yFloor+ny*off;
+  g+=`<line x1="${xCrest}" y1="${y0}" x2="${s1x}" y2="${s1y}" stroke="#66736E" stroke-width=".9" stroke-dasharray="5 4"/>`;
+  g+=`<line x1="${xToe}" y1="${yFloor}" x2="${s2x}" y2="${s2y}" stroke="#66736E" stroke-width=".9" stroke-dasharray="5 4"/>`;
+  g+=`<line x1="${s1x}" y1="${s1y}" x2="${s2x}" y2="${s2y}" stroke="#16211E" stroke-width="1.05" marker-start="url(#dimArrow)" marker-end="url(#dimArrow)"/>`;
+  const smx=(s1x+s2x)/2+nx*C.slopeTextOffset,smy=(s1y+s2y)/2+ny*C.slopeTextOffset;
+  g+=`<rect x="${smx-47}" y="${smy-13}" width="94" height="25" rx="3" fill="#fff" opacity=".94"/>`;
+  g+=`<text x="${smx}" y="${smy+4}" text-anchor="middle" font-family="IBM Plex Sans" font-size="12.5" font-style="italic" fill="#16211E">S = ${fmt(slopeM,2)} m</text>`;
+
+  /* Angle θ — position is controlled from CROSS_SECTION_LAYOUT near the top of this script. */
+  const at=C.angleAlongSlope,px=xCrest+dx*at,py=y0+dy*at;
+  const inx=-nx,iny=-ny;
+  const ax=px+inx*44+C.angleMoveX,ay=py+iny*35+C.angleMoveY;
+  const aa=C.angleArcScale;
+    g+=`<text x="${ax}" y="${ay+19}" font-family="IBM Plex Sans" font-size="12.5" fill="#16211E">θ = ${S.th}°</text>`;
+
+  /* Hcr levels and right-side labels. */
+  const lines=hcrs.map(q=>({...q,y:y0+q.v*scale})).sort((a,b)=>a.y-b.y);
+  let prevLabel=-Infinity;
+  lines.forEach(q=>{
+    g+=`<line x1="0" y1="${q.y}" x2="${xSoilRight}" y2="${q.y}" stroke="${q.c}" stroke-width="1.55" stroke-dasharray="${q.d}"/>`;
+    let ly=q.y+4;
+    if(ly-prevLabel<18) ly=prevLabel+18;
+    prevLabel=ly;
+    g+=`<path d="M ${xSoilRight} ${q.y} L ${xLabel-6} ${q.y} L ${xLabel-2} ${ly-4}" fill="none" stroke="${q.c}" stroke-width=".9"/>`;
+    g+=`<text x="${xLabel}" y="${ly}" font-family="IBM Plex Mono" font-size="10.7" fill="${q.c}">${q.n} Hcr = ${fmt(q.v,2)} m</text>`;
+  });
+
+  /* Overall depth-to-Hcr dimension. No L dimension and no ΔH callouts. */
+  if(vals.length){
+    const yDeep=y0+maxHcr*scale;
+    g+=`<line x1="${xCrest}" y1="${y0}" x2="${xDim+12}" y2="${y0}" stroke="#53605B" stroke-width=".9" stroke-dasharray="6 4"/>`;
+    g+=`<line x1="${xDim}" y1="${y0+4}" x2="${xDim}" y2="${yDeep-4}" stroke="#16211E" stroke-width="1.1" marker-start="url(#dimArrow)" marker-end="url(#dimArrow)"/>`;
+    const ty=(y0+yDeep)/2-22;
+    g+=`<text x="${xDim+14}" y="${ty}" font-family="IBM Plex Sans" font-size="11.7" fill="#16211E">Depth to</text>`;
+    g+=`<text x="${xDim+14}" y="${ty+18}" font-family="IBM Plex Sans" font-size="11.7" fill="#16211E">Hcr levels</text>`;
+    g+=`<text x="${xDim+14}" y="${ty+39}" font-family="IBM Plex Sans" font-size="11.7" fill="#16211E">= ${fmtRange(minHcr,maxHcr)} m</text>`;
+  }
+
+  /* Small geometry note, useful when the cross-section is exported or screenshotted. */
+  g+=`<text x="${xSoilRight-6}" y="${Hpx-10}" text-anchor="end" font-family="IBM Plex Mono" font-size="9" fill="#8A9892">G${S.G} · ${S.W} · θ=${S.th}°</text>`;
+  document.getElementById('sect').innerHTML=g;
+}
+function drawChart(){
+  const W=720,H=330,L=58,R=22,T=18,B=44;
+  const eq=[];for(let h=1;h<=10;h+=.25)eq.push({H:h,v:softplus7FS(S.G,S.W,S.th,h)});
+  const xb=fsSeriesAI(S.G,S.W,S.th,'xgb'),xd=fsSeriesAI(S.G,S.W,S.th,'xd');
+  const vals=eq.concat(xb,xd).map(p=>p.v),maxY=Math.max(1.2,...vals)*1.07,minY=.85;
+  const X=h=>L+(h/10)*(W-L-R),Y=v=>H-B-((v-minY)/(maxY-minY))*(H-T-B);
+  let g=`<rect width="${W}" height="${H}" fill="#fff"/>`;
+  const ystep=maxY<=3?.5:1;
+  for(let v=1;v<=maxY;v+=ystep)g+=`<line x1="${L}" y1="${Y(v)}" x2="${W-R}" y2="${Y(v)}" stroke="#EDF1EF"/><text x="${L-8}" y="${Y(v)+3}" text-anchor="end" font-family="IBM Plex Mono" font-size="9" fill="#9AA8A2">${v.toFixed(1)}</text>`;
+  for(let h=1;h<=10;h++)g+=`<line x1="${X(h)}" y1="${T}" x2="${X(h)}" y2="${H-B}" stroke="#F3F6F4"/><text x="${X(h)}" y="${H-B+15}" text-anchor="middle" font-family="IBM Plex Mono" font-size="9" fill="#9AA8A2">${h}</text>`;
+  g+=`<line x1="${L}" y1="${Y(1)}" x2="${W-R}" y2="${Y(1)}" stroke="#B23B2E" stroke-dasharray="7 4"/><line x1="${X(S.H)}" y1="${T}" x2="${X(S.H)}" y2="${H-B}" stroke="#B23B2E" opacity=".7"/><text x="${X(S.H)+4}" y="${H-B-6}" font-family="IBM Plex Mono" font-size="9" fill="#B23B2E">H</text>`;
+  const line=(arr,c,d='')=>arr.length?`<polyline points="${arr.map(p=>`${X(p.H)},${Y(p.v)}`).join(' ')}" fill="none" stroke="${c}" stroke-width="2" ${d?`stroke-dasharray="${d}"`:''}/>`:'';
+  g+=line(eq,'#1F6E8C')+line(xb,'#16211E')+line(xd,'#8A5BA8','5 3');
+  g+=`<text x="${(L+W-R)/2}" y="${H-8}" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" fill="#6B7C76">H (m)</text><text x="14" y="${(T+H-B)/2}" transform="rotate(-90 14 ${(T+H-B)/2})" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" fill="#6B7C76">FS</text>`;
+  document.getElementById('fschart').innerHTML=g;
+}
+
+const pct=x=>(100*x).toFixed(1)+'%';
+function renderBench(){
+  const A=D.accuracy;
+  const one=(m,id)=>{
+    const h=A.Hcr[m],f=A.FS[m];
+    document.getElementById(id).innerHTML=`FEM benchmark · Hcr R² <b>${h.R2.toFixed(3)}</b> · FS R² <b>${f.R2.toFixed(3)}</b><br>MAPE: Hcr <b>${pct(h.MAPE)}</b> · FS <b>${pct(f.MAPE)}</b>`;
+  };
+  one('eq','benchEq');one('xgb','benchXgb');one('xd','benchXd');
+}
+function accKpis(m){
+  const h=D.accuracy.Hcr[m],f=D.accuracy.FS[m];
+  return `<div class="acc-kpi"><div class="k">Hcr agreement</div><div class="v">${pct(h.Agreement100mape)}</div><div class="s">100 − MAPE</div></div>
+          <div class="acc-kpi"><div class="k">FS agreement</div><div class="v">${pct(f.Agreement100mape)}</div><div class="s">100 − MAPE</div></div>
+          <div class="acc-kpi"><div class="k">Hcr R²</div><div class="v">${h.R2.toFixed(4)}</div><div class="s">vs FEM</div></div>
+          <div class="acc-kpi"><div class="k">FS R²</div><div class="v">${f.R2.toFixed(4)}</div><div class="s">vs FEM</div></div>`;
+}
+function renderAccuracy(){
+  document.getElementById('accEq').innerHTML=accKpis('eq');
+  document.getElementById('accXgb').innerHTML=accKpis('xgb');
+  document.getElementById('accXd').innerHTML=accKpis('xd');
+  const name={eq:'Proposed Equation',xgb:'XGBoost',xd:'xDeepFM'};
+  const rowsH=['eq','xgb','xd'].map(m=>{const a=D.accuracy.Hcr[m];return `<tr><td>${name[m]}</td><td>${a.N}</td><td>${a.R2.toFixed(4)}</td><td>${a.RMSE.toFixed(3)}</td><td>${a.MAE.toFixed(3)}</td><td>${pct(a.MAPE)}</td><td>${pct(a.IntervalCoverage)}</td></tr>`}).join('');
+  document.getElementById('hcrAccTbl').innerHTML=`<thead><tr><th>Method</th><th>N</th><th>R²</th><th>RMSE (m)</th><th>MAE (m)</th><th>MAPE</th><th>FEM interval coverage</th></tr></thead><tbody>${rowsH}</tbody>`;
+  const rowsF=['eq','xgb','xd'].map(m=>{const a=D.accuracy.FS[m];return `<tr><td>${name[m]}</td><td>${a.N}</td><td>${a.R2.toFixed(4)}</td><td>${a.RMSE.toFixed(3)}</td><td>${a.MAE.toFixed(3)}</td><td>${pct(a.MAPE)}</td><td>${pct(a.Within10)}</td></tr>`}).join('');
+  document.getElementById('fsAccTbl').innerHTML=`<thead><tr><th>Method</th><th>N</th><th>R²</th><th>RMSE</th><th>MAE</th><th>MAPE</th><th>Within ±10%</th></tr></thead><tbody>${rowsF}</tbody>`;
+  drawParity('parityHcr',D.curves.filter(c=>!c.cens).map(c=>({fem:c.fem,eq:c.eq,xgb:c.xgb,xd:c.xd})),'Hcr (m)');
+  drawParity('parityFS',D.fs.map(r=>({fem:r.fem,eq:r.eq,xgb:r.xgb,xd:r.xd})),'FS');
+}
+function drawParity(id,rows,label){
+  const W=520,H=430,L=58,R=20,T=22,B=48,methods=[['eq','#1F6E8C'],['xgb','#16211E'],['xd','#8A5BA8']];
+  const vals=[];rows.forEach(r=>{vals.push(r.fem,r.eq,r.xgb,r.xd)});
+  const rawLo=Math.min(...vals),rawHi=Math.max(...vals),pad=(rawHi-rawLo)*.06;
+  const lo=Math.max(0,rawLo-pad),hi=rawHi+pad;
+  const X=v=>L+((v-lo)/(hi-lo))*(W-L-R),Y=v=>H-B-((v-lo)/(hi-lo))*(H-T-B);
+  let g=`<rect width="${W}" height="${H}" fill="#fff"/>`;
+  for(let i=0;i<=5;i++){const v=lo+(hi-lo)*i/5;
+    g+=`<line x1="${L}" y1="${Y(v)}" x2="${W-R}" y2="${Y(v)}" stroke="#EEF2F0"/><line x1="${X(v)}" y1="${T}" x2="${X(v)}" y2="${H-B}" stroke="#F4F6F5"/><text x="${L-8}" y="${Y(v)+3}" text-anchor="end" font-family="IBM Plex Mono" font-size="9" fill="#9AA8A2">${v.toFixed(1)}</text><text x="${X(v)}" y="${H-B+15}" text-anchor="middle" font-family="IBM Plex Mono" font-size="9" fill="#9AA8A2">${v.toFixed(1)}</text>`;
+  }
+  g+=`<line x1="${X(lo)}" y1="${Y(lo)}" x2="${X(hi)}" y2="${Y(hi)}" stroke="#AAB6B1" stroke-width="1.3" stroke-dasharray="6 4"/>`;
+  methods.forEach(([m,c])=>rows.forEach(r=>g+=`<circle cx="${X(r.fem)}" cy="${Y(r[m])}" r="2.35" fill="${c}" fill-opacity=".42" stroke="${c}" stroke-width=".45"/>`));
+  g+=`<text x="${(L+W-R)/2}" y="${H-9}" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" fill="#6B7C76">FEM ${label}</text><text x="15" y="${(T+H-B)/2}" transform="rotate(-90 15 ${(T+H-B)/2})" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" fill="#6B7C76">Predicted ${label}</text>`;
+  document.getElementById(id).innerHTML=g;
+}
+
+function buildControls(){
+  document.getElementById('segG').innerHTML=[1,2,3].map(g=>`<button data-g="${g}" aria-pressed="${g===S.G}">G${g}</button>`).join('');
+  const labels={DRY:'Dry',RAPID:'Rapid drawdown',WET:'Wet'};
+  document.getElementById('segW').innerHTML=WATERS.map(w=>`<button data-w="${w}" aria-pressed="${w===S.W}">${w}<small>${labels[w]}</small></button>`).join('');
+  document.getElementById('segG').onclick=e=>{const b=e.target.closest('button');if(b){S.G=+b.dataset.g;sync()}};
+  document.getElementById('segW').onclick=e=>{const b=e.target.closest('button');if(b){S.W=b.dataset.w;sync()}};
+  document.getElementById('th').oninput=e=>{S.th=+e.target.value;sync()};
+  document.getElementById('H').oninput=e=>{S.H=+e.target.value;sync()};
+  document.querySelectorAll('input[name="soilMode"]').forEach(r=>r.addEventListener('change',e=>setSoilMode(e.target.value)));
+  ['soilGamma','soilVoid','soilThick'].forEach(id=>document.getElementById(id).addEventListener('input',updateSoilSuggestion));
+  document.getElementById('useSuggestedG').addEventListener('click',applySuggestedGroup);
+}
+function sync(){
+  document.body.dataset.w=S.W;
+  document.querySelectorAll('#segG button').forEach(b=>b.setAttribute('aria-pressed',+b.dataset.g===S.G));
+  document.querySelectorAll('#segW button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.w===S.W));
+  document.getElementById('thVal').textContent=S.th;document.getElementById('hVal').textContent=fmt(S.H,1);
+  renderCards();drawSection();drawChart();
+}
+document.querySelector('.tabs').onclick=e=>{
+  const b=e.target.closest('button[data-tab]');if(!b)return;
+  document.querySelectorAll('.tabs button').forEach(x=>x.setAttribute('aria-selected',x===b));
+  ['calc','accuracy','method'].forEach(k=>document.getElementById('tab-'+k).hidden=k!==b.dataset.tab);
+};
+buildControls();setSoilMode('manual');renderBench();renderAccuracy();
+</script>
+</body>
+</html>
